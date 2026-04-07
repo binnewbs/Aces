@@ -1,30 +1,77 @@
-# React + TypeScript + Vite
+# 🂡 Aces - All-in-One Productivity Hub
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aces is a premium, high-fidelity desktop productivity dashboard built with **Electron** and **React**. Designed specifically for students and power users, it combines essential tools like an assignment manager, focus timer, and dynamic schedule into a single, cohesive, glassmorphism-inspired interface.
 
-Currently, two official plugins are available:
+![Aces Overview](public/icon.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Features
 
-## Expanding the ESLint configuration
+- **📊 Dynamic Dashboard**: A central hub featuring a live weather card, assignment overview, and focus timer.
+- **📅 Assignment Manager**: Full Kanban-style board to track and manage your college assignments.
+- **⏱️ Focus Timer**: A sleek, customizable Pomodoro-style timer to track deep work sessions.
+- **🗓️ Weekly Schedule**: Visual grid for managing classes, meetings, and personal tasks.
+- **📝 Notes & Tasks**: Integrated note-taking and profile management for personalized experiences.
+- **🎨 Premium UI**: Built with **Shadcn/UI** and custom CSS for a modern, sleek, and responsive aesthetic.
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## 🛠️ Tech Stack
 
-- Configure the top-level `parserOptions` property like this:
+- **Core**: [React 18](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/)
+- **Desktop Wrapper**: [Electron](https://www.electronjs.org/)
+- **Build System**: [Vite 5](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/) + [Shadcn UI](https://ui.shadcn.com/)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand) (via custom stores)
+- **Icons**: [Lucide React](https://lucide.dev/)
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- [npm](https://www.npmjs.com/)
+
+### Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/binnewbs/Aces.git
+   cd Aces
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Start Development**:
+   ```bash
+   npm run dev
+   ```
+
+### Building for Production
+
+To create a production-ready installer for your OS:
+```bash
+npm run build
+```
+This will compile the application and create an installer in the `release/` folder using `electron-builder`.
+
+## 📂 Project Structure
+
+```bash
+├── electron/          # Electron main and preload processes
+├── src/               # React frontend source code
+│   ├── components/    # Reusable UI components (Shadcn + Custom)
+│   ├── pages/         # Page-level components (Dashboard, Assignments, etc.)
+│   ├── lib/           # Stores and utility functions
+│   └── hooks/         # Custom React hooks
+├── public/            # Static assets
+└── vite.config.ts     # Vite configuration
 ```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+## 📄 License
+
+This project is private and intended for personal use.
+
+---
+
+*Made with ♥ for productivity.*
