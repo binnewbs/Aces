@@ -1,6 +1,6 @@
 # 🂡 Aces - All-in-One Productivity Hub
 
-Aces is a premium, high-fidelity desktop productivity dashboard built with **Electron** and **React**. Designed specifically for students and power users, it combines essential tools like an assignment manager, focus timer, and dynamic schedule into a single, cohesive, glassmorphism-inspired interface.
+Aces is a desktop productivity dashboard built with **Electron** and **React**. Designed specifically for students, it combines essential tools like an assignment manager, focus timer, and dynamic schedule into a single, cohesive, beautiful and minimalist interface.
 
 ![Aces Overview](public/icon.png)
 
