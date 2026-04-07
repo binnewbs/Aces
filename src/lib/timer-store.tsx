@@ -36,7 +36,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   const playAlarm = useCallback(() => {
     try {
-      const audio = new Audio("/alarm.mp3")
+      const audio = new Audio("alarm.mp3")
       audio.volume = 0.5
       audio.play().catch(e => console.error("Audio playback failed:", e))
     } catch (error) {
