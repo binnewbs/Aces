@@ -6,7 +6,7 @@ import {
   CardDescription,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { useAssignments, type AssignmentStatus } from "@/lib/assignment-store"
+import { useAssignments, type AssignmentStatus, type AssignmentPriority } from "@/lib/assignment-store"
 import { CalendarDays, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -15,6 +15,12 @@ const statusConfig: Record<AssignmentStatus, { label: string; variant: "default"
   todo: { label: "To Do", variant: "outline" },
   "in-progress": { label: "In Progress", variant: "secondary" },
   done: { label: "Done", variant: "default" },
+}
+
+const priorityConfig: Record<AssignmentPriority, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+  low: { label: "Low", variant: "secondary" },
+  medium: { label: "Medium", variant: "outline" },
+  high: { label: "High", variant: "destructive" },
 }
 
 
@@ -94,13 +100,23 @@ export function AssignmentOverview() {
                       <span className="text-sm font-medium truncate">
                         {assignment.title}
                       </span>
-                      <Badge variant={statusConfig[assignment.status].variant} className="text-[10px] px-1.5 py-0">
-                        {statusConfig[assignment.status].label}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant={statusConfig[assignment.status].variant} className="text-[10px] px-1.5 py-0 shrink-0">
+                          {statusConfig[assignment.status].label}
+                        </Badge>
+                        <Badge variant={priorityConfig[assignment.priority].variant} className="text-[10px] px-1.5 py-0 shrink-0">
+                          {priorityConfig[assignment.priority].label}
+                        </Badge>
+                      </div>
                     </div>
                     <span className="text-xs text-muted-foreground truncate">
                       {assignment.course}
                     </span>
+                    {assignment.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 italic">
+                        {assignment.description}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-3">
                     <CalendarDays className="size-3.5 text-muted-foreground" />

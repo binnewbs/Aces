@@ -12,6 +12,7 @@ interface TimerStore {
   reset: () => void
   adjustDuration: (delta: number) => void
   toggleRunning: () => void
+  playAlarm: () => void
 }
 
 const TimerContext = createContext<TimerStore | null>(null)
@@ -33,6 +34,16 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     }
   }, [duration])
 
+  const playAlarm = useCallback(() => {
+    try {
+      const audio = new Audio("/alarm.mp3")
+      audio.volume = 0.5
+      audio.play().catch(e => console.error("Audio playback failed:", e))
+    } catch (error) {
+      console.error("Failed to play alarm sound:", error)
+    }
+  }, [])
+
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
@@ -40,6 +51,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
           if (prev <= 1) {
             setIsRunning(false)
             if (intervalRef.current) clearInterval(intervalRef.current)
+            playAlarm()
             return 0
           }
           return prev - 1
@@ -56,7 +68,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         intervalRef.current = null
       }
     }
-  }, [isRunning])
+  }, [isRunning, playAlarm])
 
   const adjustDuration = (delta: number) => {
     if (hasStarted) return
@@ -81,8 +93,9 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     setHasStarted,
     reset,
     adjustDuration,
-    toggleRunning
-  }), [duration, timeLeft, isRunning, hasStarted, reset])
+    toggleRunning,
+    playAlarm
+  }), [duration, timeLeft, isRunning, hasStarted, reset, playAlarm])
 
   return (
     <TimerContext.Provider value={value}>

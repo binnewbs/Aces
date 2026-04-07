@@ -5,7 +5,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Play, Pause, RotateCcw, Plus, Minus } from "lucide-react"
+import { Play, Pause, RotateCcw, Plus, Minus, Volume2 } from "lucide-react"
 import { useTimer } from "@/lib/timer-store"
 
 const PRESETS = [
@@ -24,7 +24,8 @@ export function FocusTimer() {
     setTimeLeft,
     reset,
     adjustDuration,
-    toggleRunning
+    toggleRunning,
+    playAlarm
   } = useTimer()
 
   const totalSeconds = duration * 60
@@ -41,12 +42,23 @@ export function FocusTimer() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-5">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-          Focus Timer
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-5">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            Focus Timer
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+            onClick={playAlarm}
+          >
+            <Volume2 className="size-3.5" />
+            <span className="text-xs">Test Sound</span>
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>

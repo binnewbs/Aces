@@ -319,6 +319,11 @@ export default function AssignmentsPage() {
                               <p className="text-xs text-muted-foreground mt-1 truncate">
                                 {assignment.course}
                               </p>
+                              {assignment.description && (
+                                <p className="text-xs text-muted-foreground mt-2 line-clamp-2 italic border-l-2 border-primary/20 pl-2">
+                                  {assignment.description}
+                                </p>
+                              )}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               <Button
