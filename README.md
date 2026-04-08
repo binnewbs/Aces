@@ -1,68 +1,63 @@
-# Aces
+# Aces — All-in-One Productivity Dashboard
 
-Aces is an all-in-one desktop productivity dashboard built with Electron, React, and TypeScript. It brings together assignments, schedule planning, notes, cashflow tracking, weather, and a focus timer in one app with a custom desktop UI.
+Aces is a cross-platform desktop productivity suite designed to streamline your daily workflow. Built with a focus on speed, aesthetics, and user experience, Aces brings together financial tracking, task management, scheduling, and note-taking into a single, cohesive interface.
 
 ![Aces Overview](public/icon.png)
-<img width="1919" height="1079" alt="Screenshot_20260408_160432" src="https://github.com/user-attachments/assets/f3c55652-ff46-4d30-8941-de55139e12f3" />
+<img width="1919" height="1079" alt="Aces Dashboard Screenshot" src="https://github.com/user-attachments/assets/f3c55652-ff46-4d30-8941-de55139e12f3" />
 
-## Features
+## ✨ Features
 
-- Dashboard with weather, focus timer, assignment overview, schedule overview, and cashflow summary
-- Kanban-style assignment board with create, edit, drag-and-drop status changes, inline description visibility, and calendar-based due date picking
-- Focus timer with presets, custom timer lengths, and alarm sound
-- Weekly schedule grid with add/edit flows and 24-hour time input
-- Cashflow tracker with monthly filtering, monthly balance, daily spending charts, top spending analytics, edit/delete transactions, and calendar date picker
-- Notes workspace with autosaved notes and export tools (single note or full backup)
-- Profile and settings pages for profile info, weather city, cashflow currency, and theme preferences
-- Desktop title bar controls with a light/dark mode toggle
-- Startup loading screen for a smoother app launch
+- 📊 **Dynamic Dashboard**: A unified overview of productivity metrics, weather forecasts, upcoming deadlines, and financial status.
+- 💸 **Cashflow Tracker**: Professional-grade personal finance management.
+  - Track income and expenses with monthly filtering.
+  - Daily spending charts and analytics.
+  - Automated "Most Spent Category" insights.
+- 🎓 **Assignment Board**: Kanban-style tracking for student/professional projects with drag-and-drop status changes and calendar-based due dates.
+- ⏱️ **Focus Timer**: Built-in Pomodoro-style timer with customizable presets and audio alerts.
+- 📝 **Notes Workspace**: Minimalist digital scratchpad with autosave and export capabilities.
+- 📅 **Schedule Manager**: Integrated 24-hour weekly grid for managing appointments and focus blocks.
+- 🎨 **Modern Aesthetics**: Built with a sleek OKLCH-based design system, Geist typography, and smooth micro-animations.
+- 🌓 **Adaptive Themes**: Refined Dark and Light modes with a seamless toggle.
 
-## Tech Stack
+## 🚀 Tech Stack
 
-- React 18
-- TypeScript
-- Electron
-- Vite 5
-- Tailwind CSS 4
-- shadcn/ui
-- Radix UI primitives
-- `date-fns`
-- Lucide React
+- **Core**: [Electron](https://www.electronjs.org/), [React 18](https://react.dev/), [Vite 5](https://vitejs.dev/).
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/) (Atomic CSS), [Shadcn UI](https://ui.shadcn.com/).
+- **Logic**: [TypeScript](https://www.typescriptlang.org/), [React Hook Form](https://react-hook-form.com/), [Zod](https://zod.dev/).
+- **Data Viz**: [Recharts](https://recharts.org/).
+- **Persistence**: Data is persisted locally in `localStorage` for privacy and speed.
 
-## State Management
-
-Aces uses local React stores and context-based state, plus a small external store for the focus timer. App data such as notes, assignments, schedule items, profile data, and cashflow transactions is persisted in `localStorage`.
-
-## Getting Started
+## 🛠️ Development
 
 ### Prerequisites
 
 - Node.js 18+
-- npm
+- npm or yarn
 
-### Installation
+### Getting Started
 
-```bash
-git clone https://github.com/binnewbs/Aces.git
-cd Aces
-npm install
-```
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/binnewbs/Aces.git
+   cd Aces
+   ```
 
-### Development
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-```bash
-npm run dev
-```
+3. **Run the development server**:
+   ```bash
+   npm run dev
+   ```
 
-### Production Build
+4. **Build the production application**:
+   ```bash
+   npm run build
+   ```
 
-```bash
-npm run build
-```
-
-This builds the renderer, Electron process, and installer output via `electron-builder`.
-
-## Project Structure
+## 📂 Project Structure
 
 ```text
 electron/           Electron main and preload processes
@@ -74,12 +69,10 @@ src/
   pages/            Top-level route pages
 ```
 
-## Notes
-
-- Weather data uses Open-Meteo and only requires a city name.
-- The app uses a frameless Electron window with custom window controls.
-- Theme preference can be changed from Settings or the title bar toggle.
-
-## License
+## 📄 License
 
 Private project for personal use.
+
+---
+
+Built with ❤️ by [bintangm](https://github.com/bintangm)

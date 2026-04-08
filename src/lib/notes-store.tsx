@@ -13,6 +13,8 @@ interface NotesStore {
   createNote: () => void
   updateNote: (id: string, content: string) => void
   deleteNote: (id: string) => void
+  deleteNotes: (ids: string[]) => void
+  moveNote: (draggedId: string, targetId: string) => void
 }
 
 const STORAGE_KEY = "aces-notes"
@@ -53,8 +55,28 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     setNotes((prev) =>
       prev.map((note) =>
         note.id === id ? { ...note, content, lastModified: Date.now() } : note
-      ).sort((a, b) => b.lastModified - a.lastModified)
+      )
     )
+  }, [])
+
+  const moveNote = useCallback((draggedId: string, targetId: string) => {
+    if (draggedId === targetId) return
+
+    setNotes((prev) => {
+      const draggedIndex = prev.findIndex((note) => note.id === draggedId)
+      const targetIndex = prev.findIndex((note) => note.id === targetId)
+
+      if (draggedIndex === -1 || targetIndex === -1) {
+        return prev
+      }
+
+      const next = [...prev]
+      const draggedNote = next[draggedIndex]
+      next[draggedIndex] = next[targetIndex]
+      next[targetIndex] = draggedNote
+
+      return next
+    })
   }, [])
 
   const deleteNote = useCallback((id: string) => {
@@ -67,14 +89,32 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     })
   }, [activeNoteId])
 
+  const deleteNotes = useCallback((ids: string[]) => {
+    if (ids.length === 0) return
+
+    const idsToDelete = new Set(ids)
+
+    setNotes((prev) => {
+      const filtered = prev.filter((note) => !idsToDelete.has(note.id))
+
+      if (activeNoteId && idsToDelete.has(activeNoteId)) {
+        setActiveNoteId(filtered.length > 0 ? filtered[0].id : null)
+      }
+
+      return filtered
+    })
+  }, [activeNoteId])
+
   const value = useMemo(() => ({ 
     notes, 
     activeNoteId, 
     setActiveNoteId, 
     createNote, 
     updateNote, 
-    deleteNote 
-  }), [notes, activeNoteId, createNote, updateNote, deleteNote])
+    deleteNote,
+    deleteNotes,
+    moveNote,
+  }), [notes, activeNoteId, createNote, updateNote, deleteNote, deleteNotes, moveNote])
 
   return (
     <NotesContext.Provider value={value}>
