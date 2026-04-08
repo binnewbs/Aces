@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useCashflow, type Transaction } from "@/lib/cashflow-store"
 import { CurrencyPrompt } from "@/components/currency-prompt"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,8 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { format } from "date-fns"
-import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, CalendarIcon, Pencil } from "lucide-react"
+import { eachDayOfInterval, endOfMonth, format, startOfMonth } from "date-fns"
+import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, CalendarIcon, Pencil, TrendingDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -38,6 +38,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 const CATEGORIES = [
   "Food",
@@ -49,6 +56,13 @@ const CATEGORIES = [
   "Healthcare",
   "Others"
 ]
+
+const chartConfig = {
+  spending: {
+    label: "Daily spending",
+    color: "var(--color-destructive)",
+  },
+} satisfies ChartConfig
 
 export default function CashflowPage() {
   const { transactions, currency, addTransaction, updateTransaction, removeTransaction } = useCashflow()
@@ -156,6 +170,54 @@ export default function CashflowPage() {
   const sortedTransactions = [...filteredTransactions].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   )
+
+  // Most Spent Category
+  const expenseByCategory = filteredTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount
+      return acc
+    }, {} as Record<string, number>)
+
+  const mostSpentCategory = Object.entries(expenseByCategory)
+    .sort(([, a], [, b]) => b - a)[0]
+
+  const dailySpendingData = useMemo(() => {
+    const monthStart = new Date(`${selectedMonth}-01T00:00:00`)
+    const expenseTotalsByDay = filteredTransactions
+      .filter((transaction) => transaction.type === "expense")
+      .reduce((accumulator, transaction) => {
+        const dayKey = format(new Date(transaction.date), "yyyy-MM-dd")
+        accumulator[dayKey] = (accumulator[dayKey] || 0) + transaction.amount
+        return accumulator
+      }, {} as Record<string, number>)
+
+    return eachDayOfInterval({
+      start: startOfMonth(monthStart),
+      end: endOfMonth(monthStart),
+    }).map((day) => {
+      const dayKey = format(day, "yyyy-MM-dd")
+      return {
+        date: dayKey,
+        label: format(day, "MMM d"),
+        shortLabel: format(day, "d"),
+        spending: expenseTotalsByDay[dayKey] || 0,
+      }
+    })
+  }, [filteredTransactions, selectedMonth])
+
+  const highestSpendingDay = dailySpendingData.reduce<{
+    date: string
+    label: string
+    shortLabel: string
+    spending: number
+  } | null>((highest, current) => {
+    if (!highest || current.spending > highest.spending) {
+      return current
+    }
+
+    return highest
+  }, null)
 
   return (
     <div className="flex flex-col gap-6">
@@ -308,7 +370,7 @@ export default function CashflowPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
@@ -341,7 +403,100 @@ export default function CashflowPage() {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Most Spent</CardTitle>
+            <TrendingDown className="size-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {mostSpentCategory ? (
+              <>
+                <div className="text-2xl font-bold truncate">
+                  {mostSpentCategory[0]}
+                </div>
+                <p className="text-xs text-muted-foreground pt-1">
+                  Spent {currency}{mostSpentCategory[1].toLocaleString()}
+                </p>
+              </>
+            ) : (
+              <div className="text-2xl font-bold text-muted-foreground">
+                No data
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      <Card>
+        <CardHeader className="gap-3">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <CardTitle>Daily Spending</CardTitle>
+              <CardDescription>
+                See how much you spent each day in the selected month.
+              </CardDescription>
+            </div>
+            <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+              <div className="text-muted-foreground">Highest day</div>
+              <div className="font-semibold">
+                {highestSpendingDay && highestSpendingDay.spending > 0
+                  ? `${highestSpendingDay.label} • ${currency}${highestSpendingDay.spending.toLocaleString()}`
+                  : "No spending yet"}
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {totalExpense === 0 ? (
+            <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed text-center">
+              <p className="font-medium">No expenses recorded for this month.</p>
+              <p className="text-sm text-muted-foreground">
+                Add an expense to start seeing your daily spending trend.
+              </p>
+            </div>
+          ) : (
+            <ChartContainer config={chartConfig} className="min-h-72 w-full">
+              <BarChart accessibilityLayer data={dailySpendingData} margin={{ top: 8, right: 12, left: 12 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="shortLabel"
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={12}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  width={80}
+                  tickFormatter={(value) => `${currency}${Number(value).toLocaleString()}`}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      indicator="dot"
+                      labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ""}
+                      formatter={(value) => (
+                        <div className="flex min-w-0 items-center justify-between gap-2">
+                          <span className="text-muted-foreground">Spent</span>
+                          <span className="font-medium text-foreground">
+                            {currency}{Number(value).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    />
+                  }
+                />
+                <Bar
+                  dataKey="spending"
+                  fill="var(--color-spending)"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ChartContainer>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

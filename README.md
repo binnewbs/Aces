@@ -7,11 +7,11 @@ Aces is an all-in-one desktop productivity dashboard built with Electron, React,
 ## Features
 
 - Dashboard with weather, focus timer, assignment overview, schedule overview, and cashflow summary
-- Kanban-style assignment board with create, edit, drag-and-drop status changes, and calendar-based due date picking
+- Kanban-style assignment board with create, edit, drag-and-drop status changes, inline description visibility, and calendar-based due date picking
 - Focus timer with presets, custom timer lengths, and alarm sound
 - Weekly schedule grid with add/edit flows and 24-hour time input
-- Cashflow tracker with monthly filtering, monthly balance, edit/delete transactions, and calendar date picker
-- Notes workspace with autosaved notes and export tools
+- Cashflow tracker with monthly filtering, monthly balance, daily spending charts, top spending analytics, edit/delete transactions, and calendar date picker
+- Notes workspace with autosaved notes and export tools (single note or full backup)
 - Profile and settings pages for profile info, weather city, cashflow currency, and theme preferences
 - Desktop title bar controls with a light/dark mode toggle
 - Startup loading screen for a smoother app launch

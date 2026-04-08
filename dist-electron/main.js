@@ -14,7 +14,7 @@ s.on("window-maximize", () => {
 s.on("window-close", () => e == null ? void 0 : e.close());
 function c() {
   e = new t({
-    width: 1100,
+    width: 1180,
     height: 715,
     title: "Aces",
     icon: o.join(process.env.VITE_PUBLIC, "icon.png"),

@@ -1,11 +1,11 @@
 import { useState } from "react"
 import { useCashflow } from "@/lib/cashflow-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowUpCircle, ArrowDownCircle, Wallet, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowUpCircle, ArrowDownCircle, Wallet, ChevronLeft, ChevronRight, ReceiptText, TrendingDown } from "lucide-react"
 import { CurrencyPrompt } from "./currency-prompt"
 import { Button } from "./ui/button"
 import { Link } from "react-router-dom"
-import { format } from "date-fns"
+import { format, isToday } from "date-fns"
 
 export function CashflowOverview() {
   const { transactions, currency } = useCashflow()
@@ -49,6 +49,20 @@ export function CashflowOverview() {
 
   const balance = monthlyTransactions
     .reduce((sum, t) => sum + (t.type === "income" ? t.amount : -t.amount), 0)
+
+  const todaySpending = transactions
+    .filter((t) => t.type === "expense" && isToday(new Date(t.date)))
+    .reduce((sum, t) => sum + t.amount, 0)
+
+  const expenseByCategory = monthlyTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount
+      return acc
+    }, {} as Record<string, number>)
+
+  const mostSpentCategory = Object.entries(expenseByCategory)
+    .sort(([, a], [, b]) => b - a)[0]
 
   const [year, monthNum] = selectedMonth.split("-")
   const displayMonth = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleString('default', { month: 'short' })
@@ -113,11 +127,29 @@ export function CashflowOverview() {
               </div>
               <div className="flex flex-col gap-1 rounded-lg bg-muted/50 px-4 py-2 min-w-[120px]">
                 <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  <ReceiptText className="size-3" />
+                  Today
+                </span>
+                <span className="text-lg font-semibold">
+                  {todaySpending > 0 ? "-" : ""}{currency}{todaySpending.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1 rounded-lg bg-muted/50 px-4 py-2 min-w-[120px]">
+                <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                   <ArrowDownCircle className="size-3 text-red-500" />
                   Expense
                 </span>
                 <span className="text-lg font-semibold text-red-500">
                   -{currency}{expense.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1 rounded-lg bg-muted/50 px-4 py-2 min-w-[120px]">
+                <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  <TrendingDown className="size-3" />
+                  Top Spending
+                </span>
+                <span className="text-lg font-semibold truncate max-w-[100px]">
+                  {mostSpentCategory ? mostSpentCategory[0] : "None"}
                 </span>
               </div>
             </div>

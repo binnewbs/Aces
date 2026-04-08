@@ -37,7 +37,7 @@ ipcMain.on('window-close', () => win?.close())
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1100,
+    width: 1180,
     height: 715,
     title: 'Aces',
     icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
