@@ -44,7 +44,18 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts"
+
+const CATEGORY_COLORS = [
+  "hsl(12 76% 61%)",
+  "hsl(173 58% 39%)",
+  "hsl(197 37% 24%)",
+  "hsl(43 74% 66%)",
+  "hsl(27 87% 67%)",
+  "hsl(221 83% 53%)",
+  "hsl(142 71% 45%)",
+  "hsl(262 83% 58%)",
+]
 
 const CATEGORIES = [
   "Food",
@@ -171,17 +182,6 @@ export default function CashflowPage() {
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   )
 
-  // Most Spent Category
-  const expenseByCategory = filteredTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + t.amount
-      return acc
-    }, {} as Record<string, number>)
-
-  const mostSpentCategory = Object.entries(expenseByCategory)
-    .sort(([, a], [, b]) => b - a)[0]
-
   const dailySpendingData = useMemo(() => {
     const monthStart = new Date(`${selectedMonth}-01T00:00:00`)
     const expenseTotalsByDay = filteredTransactions
@@ -205,6 +205,40 @@ export default function CashflowPage() {
       }
     })
   }, [filteredTransactions, selectedMonth])
+
+  const averageDailySpending = useMemo(() => {
+    if (dailySpendingData.length === 0) return 0
+    return totalExpense / dailySpendingData.length
+  }, [dailySpendingData.length, totalExpense])
+
+  const spendingByCategoryData = useMemo(() => {
+    const totals = filteredTransactions
+      .filter((transaction) => transaction.type === "expense")
+      .reduce((accumulator, transaction) => {
+        accumulator[transaction.category] = (accumulator[transaction.category] || 0) + transaction.amount
+        return accumulator
+      }, {} as Record<string, number>)
+
+    return Object.entries(totals)
+      .map(([categoryName, amount], index) => ({
+        category: categoryName,
+        amount,
+        fill: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+      }))
+      .sort((a, b) => b.amount - a.amount)
+  }, [filteredTransactions])
+
+  const categoryChartConfig = useMemo(
+    () =>
+      spendingByCategoryData.reduce((config, item) => {
+        config[item.category] = {
+          label: item.category,
+          color: item.fill,
+        }
+        return config
+      }, {} as ChartConfig),
+    [spendingByCategoryData]
+  )
 
   const highestSpendingDay = dailySpendingData.reduce<{
     date: string
@@ -405,98 +439,178 @@ export default function CashflowPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Most Spent</CardTitle>
+            <CardTitle className="text-sm font-medium">Average Daily Spending</CardTitle>
             <TrendingDown className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {mostSpentCategory ? (
-              <>
-                <div className="text-2xl font-bold truncate">
-                  {mostSpentCategory[0]}
+            <div className="text-2xl font-bold">
+              {currency}{averageDailySpending.toLocaleString(undefined, {
+                maximumFractionDigits: 2,
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground pt-1">
+              Across {dailySpendingData.length} day{dailySpendingData.length === 1 ? "" : "s"} in this month
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <Card className="h-full">
+          <CardHeader className="gap-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <CardTitle>Daily Spending</CardTitle>
+                <CardDescription>
+                  See how much you spent each day in the selected month.
+                </CardDescription>
+              </div>
+              <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                <div className="text-muted-foreground">Highest day</div>
+                <div className="font-semibold">
+                  {highestSpendingDay && highestSpendingDay.spending > 0
+                    ? `${highestSpendingDay.label} • ${currency}${highestSpendingDay.spending.toLocaleString()}`
+                    : "No spending yet"}
                 </div>
-                <p className="text-xs text-muted-foreground pt-1">
-                  Spent {currency}{mostSpentCategory[1].toLocaleString()}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col">
+            {totalExpense === 0 ? (
+              <div className="flex min-h-72 flex-1 flex-col items-center justify-center rounded-xl border border-dashed text-center">
+                <p className="font-medium">No expenses recorded for this month.</p>
+                <p className="text-sm text-muted-foreground">
+                  Add an expense to start seeing your daily spending trend.
                 </p>
-              </>
+              </div>
             ) : (
-              <div className="text-2xl font-bold text-muted-foreground">
-                No data
+              <ChartContainer config={chartConfig} className="min-h-72 h-full w-full flex-1">
+                <BarChart accessibilityLayer data={dailySpendingData} margin={{ top: 8, right: 4, left: 12, bottom: 0 }}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="shortLabel"
+                    tickLine={false}
+                    axisLine={false}
+                    minTickGap={12}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    width={88}
+                    tickMargin={8}
+                    tickFormatter={(value) => `${currency}${Number(value).toLocaleString()}`}
+                  />
+                  <ChartTooltip
+                    cursor={false}
+                    content={
+                      <ChartTooltipContent
+                        indicator="dot"
+                        labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ""}
+                        formatter={(value) => (
+                          <div className="flex min-w-0 items-center justify-between gap-2">
+                            <span className="text-muted-foreground">Spent</span>
+                            <span className="font-medium text-foreground">
+                              {currency}{Number(value).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      />
+                    }
+                  />
+                  <Bar
+                    dataKey="spending"
+                    fill="var(--color-spending)"
+                    radius={[8, 8, 0, 0]}
+                  />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>Spending by Category</CardTitle>
+            <CardDescription>
+              Breakdown of this month&apos;s expenses by category.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col">
+            {spendingByCategoryData.length === 0 ? (
+              <div className="flex min-h-72 flex-1 flex-col items-center justify-center rounded-xl border border-dashed text-center">
+                <p className="font-medium">No category data yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  Add an expense to see how your spending is distributed.
+                </p>
+              </div>
+            ) : (
+              <div className="flex h-full flex-1 flex-col gap-6">
+                <ChartContainer config={categoryChartConfig} className="mx-auto min-h-72 h-full w-full max-w-[320px] flex-1">
+                  <PieChart accessibilityLayer>
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          hideLabel
+                          formatter={(value, name, item) => (
+                            <div className="flex min-w-0 items-center justify-between gap-2">
+                              <span className="text-muted-foreground">{String(name)}</span>
+                              <span className="font-medium text-foreground">
+                                {currency}{Number(value).toLocaleString()}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {item?.payload?.share}%
+                              </span>
+                            </div>
+                          )}
+                        />
+                      }
+                    />
+                    <Pie
+                      data={spendingByCategoryData.map((item) => ({
+                        ...item,
+                        share: ((item.amount / totalExpense) * 100).toFixed(1),
+                      }))}
+                      dataKey="amount"
+                      nameKey="category"
+                      innerRadius={60}
+                      outerRadius={96}
+                      paddingAngle={3}
+                      strokeWidth={0}
+                    >
+                      {spendingByCategoryData.map((item) => (
+                        <Cell key={item.category} fill={item.fill} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+
+                <div className="space-y-3">
+                  {spendingByCategoryData.map((item) => (
+                    <div key={item.category} className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="size-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: item.fill }}
+                        />
+                        <span className="truncate text-sm font-medium">{item.category}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold">
+                          {currency}{item.amount.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {((item.amount / totalExpense) * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader className="gap-3">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <CardTitle>Daily Spending</CardTitle>
-              <CardDescription>
-                See how much you spent each day in the selected month.
-              </CardDescription>
-            </div>
-            <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-              <div className="text-muted-foreground">Highest day</div>
-              <div className="font-semibold">
-                {highestSpendingDay && highestSpendingDay.spending > 0
-                  ? `${highestSpendingDay.label} • ${currency}${highestSpendingDay.spending.toLocaleString()}`
-                  : "No spending yet"}
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {totalExpense === 0 ? (
-            <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed text-center">
-              <p className="font-medium">No expenses recorded for this month.</p>
-              <p className="text-sm text-muted-foreground">
-                Add an expense to start seeing your daily spending trend.
-              </p>
-            </div>
-          ) : (
-            <ChartContainer config={chartConfig} className="min-h-72 w-full">
-              <BarChart accessibilityLayer data={dailySpendingData} margin={{ top: 8, right: 12, left: 12 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="shortLabel"
-                  tickLine={false}
-                  axisLine={false}
-                  minTickGap={12}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  width={80}
-                  tickFormatter={(value) => `${currency}${Number(value).toLocaleString()}`}
-                />
-                <ChartTooltip
-                  cursor={false}
-                  content={
-                    <ChartTooltipContent
-                      indicator="dot"
-                      labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ""}
-                      formatter={(value) => (
-                        <div className="flex min-w-0 items-center justify-between gap-2">
-                          <span className="text-muted-foreground">Spent</span>
-                          <span className="font-medium text-foreground">
-                            {currency}{Number(value).toLocaleString()}
-                          </span>
-                        </div>
-                      )}
-                    />
-                  }
-                />
-                <Bar
-                  dataKey="spending"
-                  fill="var(--color-spending)"
-                  radius={[8, 8, 0, 0]}
-                />
-              </BarChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

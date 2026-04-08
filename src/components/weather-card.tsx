@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import {
   CloudSun,
   Thermometer,
@@ -17,6 +18,7 @@ import {
   CloudRain,
   CloudSnow,
   CloudLightning,
+  RefreshCw,
   type LucideIcon,
 } from "lucide-react"
 
@@ -83,109 +85,150 @@ function getWeatherMeta(code: number, isDay: number): { desc: string; icon: Luci
 export function WeatherCard() {
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [city, setCity] = useState<string>("")
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  useEffect(() => {
+  async function loadWeather(forceRefresh = false) {
     const storedCity = localStorage.getItem("aces-weather-city") || "Jakarta"
     setCity(storedCity)
+    setError(null)
+
+    if (!forceRefresh) {
+      try {
+        const cachedWeather = localStorage.getItem(WEATHER_CACHE_KEY)
+        if (cachedWeather) {
+          const parsedCache = JSON.parse(cachedWeather) as WeatherCache
+          const isCacheFresh = Date.now() - parsedCache.timestamp < WEATHER_CACHE_TTL
+
+          if (parsedCache.city === storedCity && isCacheFresh) {
+            setCity(parsedCache.resolvedCity)
+            setWeather(parsedCache.weather)
+            setLoading(false)
+            return
+          }
+        }
+      } catch {
+        // Ignore invalid cache data and fall back to fetching.
+      }
+    }
+
+    abortControllerRef.current?.abort()
     const abortController = new AbortController()
+    abortControllerRef.current = abortController
+
+    if (weather) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+    }
 
     try {
-      const cachedWeather = localStorage.getItem(WEATHER_CACHE_KEY)
-      if (cachedWeather) {
-        const parsedCache = JSON.parse(cachedWeather) as WeatherCache
-        const isCacheFresh = Date.now() - parsedCache.timestamp < WEATHER_CACHE_TTL
+      // 1. Geocode City
+      const geoRes = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+          storedCity
+        )}&count=1&language=en&format=json`,
+        { signal: abortController.signal }
+      )
+      if (!geoRes.ok) throw new Error("Failed to find city coordinates")
+      const geoData = await geoRes.json()
 
-        if (parsedCache.city === storedCity && isCacheFresh) {
-          setCity(parsedCache.resolvedCity)
-          setWeather(parsedCache.weather)
-          setError(null)
-          setLoading(false)
-          return () => abortController.abort()
-        }
+      if (!geoData.results || geoData.results.length === 0) {
+        throw new Error("City not found")
       }
-    } catch {
-      // Ignore invalid cache data and fall back to fetching.
-    }
 
-    async function fetchWeather() {
-      try {
-        setLoading(true)
-        
-        // 1. Geocode City
-        const geoRes = await fetch(
-          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
-            storedCity
-          )}&count=1&language=en&format=json`,
-          { signal: abortController.signal }
+      const loc = geoData.results[0]
+
+      // Update display city name to match found location
+      setCity(loc.name)
+
+      // 2. Fetch Weather
+      const weatherRes = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,apparent_temperature,weather_code,uv_index,is_day&timezone=auto`,
+        { signal: abortController.signal }
+      )
+      if (!weatherRes.ok) throw new Error("Weather fetch failed")
+      const weatherData = await weatherRes.json()
+
+      const current = weatherData.current
+
+      if (!abortController.signal.aborted) {
+        const nextWeather = {
+          temp: Math.round(current.temperature_2m),
+          feelsLike: Math.round(current.apparent_temperature),
+          code: current.weather_code,
+          isDay: current.is_day,
+          uvi: current.uv_index || 0,
+        }
+
+        setWeather(nextWeather)
+        localStorage.setItem(
+          WEATHER_CACHE_KEY,
+          JSON.stringify({
+            city: storedCity,
+            resolvedCity: loc.name,
+            timestamp: Date.now(),
+            weather: nextWeather,
+          } satisfies WeatherCache)
         )
-        if (!geoRes.ok) throw new Error("Failed to find city coordinates")
-        const geoData = await geoRes.json()
-        
-        if (!geoData.results || geoData.results.length === 0) {
-          throw new Error("City not found")
-        }
-        
-        const loc = geoData.results[0]
-        
-        // Update display city name to match found location
-        setCity(loc.name)
-        
-        // 2. Fetch Weather
-        const weatherRes = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,apparent_temperature,weather_code,uv_index,is_day&timezone=auto`,
-          { signal: abortController.signal }
-        )
-        if (!weatherRes.ok) throw new Error("Weather fetch failed")
-        const weatherData = await weatherRes.json()
+      }
+    } catch (err: unknown) {
+      if (!abortController.signal.aborted) {
+        setError(err instanceof Error ? err.message : "Failed to fetch weather data")
+      }
+    } finally {
+      if (!abortController.signal.aborted) {
+        setLoading(false)
+        setRefreshing(false)
+      }
 
-        const current = weatherData.current
-
-        if (!abortController.signal.aborted) {
-          const nextWeather = {
-            temp: Math.round(current.temperature_2m),
-            feelsLike: Math.round(current.apparent_temperature),
-            code: current.weather_code,
-            isDay: current.is_day,
-            uvi: current.uv_index || 0,
-          }
-
-          setWeather(nextWeather)
-          setError(null)
-          localStorage.setItem(
-            WEATHER_CACHE_KEY,
-            JSON.stringify({
-              city: storedCity,
-              resolvedCity: loc.name,
-              timestamp: Date.now(),
-              weather: nextWeather,
-            } satisfies WeatherCache)
-          )
-        }
-      } catch (err: unknown) {
-        if (!abortController.signal.aborted) {
-          setError(err instanceof Error ? err.message : "Failed to fetch weather data")
-        }
-      } finally {
-        if (!abortController.signal.aborted) {
-          setLoading(false)
-        }
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null
       }
     }
+  }
 
-    fetchWeather()
-    return () => abortController.abort()
+  useEffect(() => {
+    void loadWeather()
+
+    return () => {
+      abortControllerRef.current?.abort()
+    }
   }, [])
 
-  if (loading) {
+  const title = (
+    <CardTitle className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <CloudSun />
+        <span>Weather</span>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={() => void loadWeather(true)}
+          disabled={loading || refreshing}
+          aria-label="Refresh weather"
+        >
+          <RefreshCw className={refreshing ? "animate-spin" : ""} />
+        </Button>
+      </div>
+      <div className="flex items-center gap-2">
+        {city ? (
+          <span className="text-sm font-normal text-muted-foreground capitalize">
+            {city}
+          </span>
+        ) : null}
+      </div>
+    </CardTitle>
+  )
+
+  if (loading && !weather) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CloudSun />
-            Weather
-          </CardTitle>
+          {title}
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4 text-center items-center justify-center py-4 text-muted-foreground">
@@ -197,14 +240,11 @@ export function WeatherCard() {
     )
   }
 
-  if (error || !weather) {
+  if (!weather) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CloudSun />
-            Weather
-          </CardTitle>
+          {title}
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">{error || "Unable to load weather"}</p>
@@ -220,15 +260,7 @@ export function WeatherCard() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <CloudSun />
-            Weather
-          </span>
-          <span className="text-sm font-normal text-muted-foreground capitalize">
-            {city}
-          </span>
-        </CardTitle>
+        {title}
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-4">
@@ -262,6 +294,9 @@ export function WeatherCard() {
               </div>
             </div>
           </div>
+          {error ? (
+            <p className="text-xs text-destructive">{error}</p>
+          ) : null}
         </div>
       </CardContent>
     </Card>
