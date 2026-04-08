@@ -3,6 +3,7 @@
 Aces is an all-in-one desktop productivity dashboard built with Electron, React, and TypeScript. It brings together assignments, schedule planning, notes, cashflow tracking, weather, and a focus timer in one app with a custom desktop UI.
 
 ![Aces Overview](public/icon.png)
+<img width="1919" height="1079" alt="Screenshot_20260408_160432" src="https://github.com/user-attachments/assets/f3c55652-ff46-4d30-8941-de55139e12f3" />
 
 ## Features
 
