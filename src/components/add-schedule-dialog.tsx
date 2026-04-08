@@ -22,6 +22,9 @@ import {
 } from "@/components/ui/select"
 import { Plus } from "lucide-react"
 
+const TIME_24H_PATTERN = "^([01]\\d|2[0-3]):([0-5]\\d)$"
+type ColorTheme = "green" | "red" | "blue" | "teal" | "purple" | "yellow" | "default"
+
 export function AddScheduleDialog() {
   const { addClass } = useSchedule()
   const [open, setOpen] = useState(false)
@@ -31,7 +34,7 @@ export function AddScheduleDialog() {
   const [day, setDay] = useState<DayOfWeek>("Monday")
   const [startTime, setStartTime] = useState("08:00")
   const [endTime, setEndTime] = useState("10:00")
-  const [colorTheme, setColorTheme] = useState<"green" | "red" | "blue" | "teal" | "purple" | "yellow" | "default">("default")
+  const [colorTheme, setColorTheme] = useState<ColorTheme>("default")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -126,18 +129,26 @@ export function AddScheduleDialog() {
               </Label>
               <div className="col-span-3 flex items-center gap-2">
                 <Input 
-                  type="time" 
+                  type="text"
+                  inputMode="numeric"
+                  pattern={TIME_24H_PATTERN}
+                  placeholder="08:00"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                   className="flex-1"
+                  title="Use 24-hour format, for example 08:00 or 14:30"
                   required
                 />
                 <span className="text-muted-foreground">-</span>
                 <Input 
-                  type="time" 
+                  type="text"
+                  inputMode="numeric"
+                  pattern={TIME_24H_PATTERN}
+                  placeholder="10:00"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   className="flex-1"
+                  title="Use 24-hour format, for example 10:00 or 16:45"
                   required
                 />
               </div>
@@ -147,7 +158,7 @@ export function AddScheduleDialog() {
                 Theme
               </Label>
               <div className="col-span-3">
-                <Select value={colorTheme} onValueChange={(v: any) => setColorTheme(v)}>
+                <Select value={colorTheme} onValueChange={(v) => setColorTheme(v as ColorTheme)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select theme" />
                   </SelectTrigger>

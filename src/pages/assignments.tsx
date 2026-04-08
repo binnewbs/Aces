@@ -31,13 +31,22 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Plus,
+  CalendarIcon,
   CalendarDays,
   GripVertical,
   Trash2,
   Pencil,
 } from "lucide-react"
+import { format, parse } from "date-fns"
+import { cn } from "@/lib/utils"
 
 const columns: { id: AssignmentStatus; title: string; description: string }[] = [
   { id: "todo", title: "To Do", description: "Tasks waiting to be started" },
@@ -75,6 +84,7 @@ export default function AssignmentsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [isDueDatePickerOpen, setIsDueDatePickerOpen] = useState(false)
 
   const handleSubmit = () => {
     if (!formData.title.trim() || !formData.course.trim()) return
@@ -88,6 +98,7 @@ export default function AssignmentsPage() {
     setFormData(defaultFormData)
     setEditingId(null)
     setDialogOpen(false)
+    setIsDueDatePickerOpen(false)
   }
 
   const startEdit = (assignment: Assignment) => {
@@ -101,6 +112,7 @@ export default function AssignmentsPage() {
     })
     setEditingId(assignment.id)
     setDialogOpen(true)
+    setIsDueDatePickerOpen(false)
   }
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -141,6 +153,7 @@ export default function AssignmentsPage() {
           if (!open) {
             setFormData(defaultFormData)
             setEditingId(null)
+            setIsDueDatePickerOpen(false)
           }
         }}>
           <DialogTrigger asChild>
@@ -187,12 +200,45 @@ export default function AssignmentsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="dueDate">Due Date</Label>
-                  <Input
-                    id="dueDate"
-                    type="date"
-                    value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                  />
+                  <Popover open={isDueDatePickerOpen} onOpenChange={setIsDueDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !formData.dueDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon data-icon="inline-start" />
+                        {formData.dueDate ? (
+                          format(parse(formData.dueDate, "yyyy-MM-dd", new Date()), "PPP")
+                        ) : (
+                          <span>Pick a due date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-auto p-0"
+                      align="start"
+                      onOpenAutoFocus={(event) => event.preventDefault()}
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={parse(formData.dueDate, "yyyy-MM-dd", new Date())}
+                        onSelect={(selectedDate) => {
+                          if (!selectedDate) return
+
+                          setFormData({
+                            ...formData,
+                            dueDate: format(selectedDate, "yyyy-MM-dd"),
+                          })
+                          setIsDueDatePickerOpen(false)
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="grid gap-2">
                   <Label>Priority</Label>

@@ -5,17 +5,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { CloudSun, Thermometer, Sun } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import {
+  CloudSun,
+  Thermometer,
+  Sun,
+  Moon,
+  CloudMoon,
+  Cloud,
+  CloudFog,
+  CloudDrizzle,
+  CloudRain,
+  CloudSnow,
+  CloudLightning,
+  type LucideIcon,
+} from "lucide-react"
 
 interface WeatherData {
   temp: number
   feelsLike: number
-  description: string
-  icon: string
+  code: number
+  isDay: number
   uvi: number
 }
+
+interface WeatherCache {
+  city: string
+  resolvedCity: string
+  timestamp: number
+  weather: WeatherData
+}
+
+const WEATHER_CACHE_KEY = "aces-weather-cache"
+const WEATHER_CACHE_TTL = 10 * 60 * 1000
 
 function getUvLabel(uvi: number): { label: string; className: string } {
   if (uvi <= 2) return { label: "Low", className: "text-green-400" }
@@ -25,6 +46,40 @@ function getUvLabel(uvi: number): { label: string; className: string } {
   return { label: "Extreme", className: "text-purple-400" }
 }
 
+function getWeatherMeta(code: number, isDay: number): { desc: string; icon: LucideIcon } {
+  const meta: Record<number, { desc: string; icon: LucideIcon }> = {
+    0: { desc: "Clear sky", icon: isDay ? Sun : Moon },
+    1: { desc: "Mainly clear", icon: isDay ? CloudSun : CloudMoon },
+    2: { desc: "Partly cloudy", icon: isDay ? CloudSun : CloudMoon },
+    3: { desc: "Overcast", icon: Cloud },
+    45: { desc: "Fog", icon: CloudFog },
+    48: { desc: "Depositing rime fog", icon: CloudFog },
+    51: { desc: "Light drizzle", icon: CloudDrizzle },
+    53: { desc: "Moderate drizzle", icon: CloudDrizzle },
+    55: { desc: "Dense drizzle", icon: CloudDrizzle },
+    56: { desc: "Light freezing drizzle", icon: CloudDrizzle },
+    57: { desc: "Dense freezing drizzle", icon: CloudDrizzle },
+    61: { desc: "Slight rain", icon: CloudRain },
+    63: { desc: "Moderate rain", icon: CloudRain },
+    65: { desc: "Heavy rain", icon: CloudRain },
+    66: { desc: "Light freezing rain", icon: CloudRain },
+    67: { desc: "Heavy freezing rain", icon: CloudRain },
+    71: { desc: "Slight snow fall", icon: CloudSnow },
+    73: { desc: "Moderate snow fall", icon: CloudSnow },
+    75: { desc: "Heavy snow fall", icon: CloudSnow },
+    77: { desc: "Snow grains", icon: CloudSnow },
+    80: { desc: "Slight rain showers", icon: CloudRain },
+    81: { desc: "Moderate rain showers", icon: CloudRain },
+    82: { desc: "Violent rain showers", icon: CloudRain },
+    85: { desc: "Slight snow showers", icon: CloudSnow },
+    86: { desc: "Heavy snow showers", icon: CloudSnow },
+    95: { desc: "Thunderstorm", icon: CloudLightning },
+    96: { desc: "Thunderstorm with slight hail", icon: CloudLightning },
+    99: { desc: "Thunderstorm with heavy hail", icon: CloudLightning }
+  }
+  return meta[code] || { desc: "Unknown", icon: Cloud }
+}
+
 export function WeatherCard() {
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -32,87 +87,96 @@ export function WeatherCard() {
   const [city, setCity] = useState<string>("")
 
   useEffect(() => {
-    const apiKey = localStorage.getItem("aces-weather-api-key")
     const storedCity = localStorage.getItem("aces-weather-city") || "Jakarta"
     setCity(storedCity)
+    const abortController = new AbortController()
 
-    if (!apiKey) {
-      setError("no-key")
-      setLoading(false)
-      return
+    try {
+      const cachedWeather = localStorage.getItem(WEATHER_CACHE_KEY)
+      if (cachedWeather) {
+        const parsedCache = JSON.parse(cachedWeather) as WeatherCache
+        const isCacheFresh = Date.now() - parsedCache.timestamp < WEATHER_CACHE_TTL
+
+        if (parsedCache.city === storedCity && isCacheFresh) {
+          setCity(parsedCache.resolvedCity)
+          setWeather(parsedCache.weather)
+          setError(null)
+          setLoading(false)
+          return () => abortController.abort()
+        }
+      }
+    } catch {
+      // Ignore invalid cache data and fall back to fetching.
     }
 
     async function fetchWeather() {
       try {
         setLoading(true)
+        
+        // 1. Geocode City
+        const geoRes = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+            storedCity
+          )}&count=1&language=en&format=json`,
+          { signal: abortController.signal }
+        )
+        if (!geoRes.ok) throw new Error("Failed to find city coordinates")
+        const geoData = await geoRes.json()
+        
+        if (!geoData.results || geoData.results.length === 0) {
+          throw new Error("City not found")
+        }
+        
+        const loc = geoData.results[0]
+        
+        // Update display city name to match found location
+        setCity(loc.name)
+        
+        // 2. Fetch Weather
         const weatherRes = await fetch(
-          `https://api.openweathermap.org/data/2.5/weather?q=${storedCity}&units=metric&appid=${apiKey}`
+          `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,apparent_temperature,weather_code,uv_index,is_day&timezone=auto`,
+          { signal: abortController.signal }
         )
         if (!weatherRes.ok) throw new Error("Weather fetch failed")
         const weatherData = await weatherRes.json()
 
-        // Get UV index
-        const { coord } = weatherData
-        let uvi = 0
-        try {
-          const uvRes = await fetch(
-            `https://api.openweathermap.org/data/2.5/uvi?lat=${coord.lat}&lon=${coord.lon}&appid=${apiKey}`
-          )
-          if (uvRes.ok) {
-            const uvData = await uvRes.json()
-            uvi = uvData.value
+        const current = weatherData.current
+
+        if (!abortController.signal.aborted) {
+          const nextWeather = {
+            temp: Math.round(current.temperature_2m),
+            feelsLike: Math.round(current.apparent_temperature),
+            code: current.weather_code,
+            isDay: current.is_day,
+            uvi: current.uv_index || 0,
           }
-        } catch {
-          // UV index may fail on free tier, fallback to 0
+
+          setWeather(nextWeather)
+          setError(null)
+          localStorage.setItem(
+            WEATHER_CACHE_KEY,
+            JSON.stringify({
+              city: storedCity,
+              resolvedCity: loc.name,
+              timestamp: Date.now(),
+              weather: nextWeather,
+            } satisfies WeatherCache)
+          )
         }
-
-        // OpenWeatherMap's /uvi endpoint often returns the daily peak.
-        // If it's night (icon suffix 'n'), force it to 0 for accuracy.
-        const isNight = weatherData.weather[0].icon.endsWith('n')
-        const finalUvi = isNight ? 0 : uvi
-
-        setWeather({
-          temp: Math.round(weatherData.main.temp),
-          feelsLike: Math.round(weatherData.main.feels_like),
-          description: weatherData.weather[0].description,
-          icon: weatherData.weather[0].icon,
-          uvi: finalUvi,
-        })
-        setError(null)
-      } catch {
-        setError("Failed to fetch weather data")
+      } catch (err: unknown) {
+        if (!abortController.signal.aborted) {
+          setError(err instanceof Error ? err.message : "Failed to fetch weather data")
+        }
       } finally {
-        setLoading(false)
+        if (!abortController.signal.aborted) {
+          setLoading(false)
+        }
       }
     }
 
     fetchWeather()
+    return () => abortController.abort()
   }, [])
-
-  if (error === "no-key") {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CloudSun />
-            Weather
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center gap-3 py-4 text-center">
-            <CloudSun className="size-10 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Add your OpenWeatherMap API key and city in{" "}
-              <Button variant="link" className="h-auto p-0 text-sm" asChild>
-                <a href="#/settings">Settings</a>
-              </Button>{" "}
-              to see weather data.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
 
   if (loading) {
     return (
@@ -124,10 +188,9 @@ export function WeatherCard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-3">
-            <Skeleton className="h-12 w-24" />
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-4 w-28" />
+          <div className="flex flex-col gap-4 text-center items-center justify-center py-4 text-muted-foreground">
+            <CloudSun className="size-8 animate-pulse text-muted" />
+            <p className="text-sm">Loading weather data...</p>
           </div>
         </CardContent>
       </Card>
@@ -151,6 +214,8 @@ export function WeatherCard() {
   }
 
   const uv = getUvLabel(weather.uvi)
+  const meta = getWeatherMeta(weather.code, weather.isDay)
+  const WeatherIcon = meta.icon
 
   return (
     <Card>
@@ -173,14 +238,10 @@ export function WeatherCard() {
               <span className="text-4xl font-bold tracking-tighter">{weather.temp}°</span>
               <span className="text-lg text-muted-foreground">C</span>
             </div>
-            <img
-              src={`https://openweathermap.org/img/wn/${weather.icon}@2x.png`}
-              alt={weather.description}
-              className="size-16 -mr-2"
-            />
+            <WeatherIcon className="size-16 text-primary -mr-2" strokeWidth={1.5} />
           </div>
 
-          <p className="text-sm capitalize text-muted-foreground -mt-2">{weather.description}</p>
+          <p className="text-sm capitalize text-muted-foreground -mt-2">{meta.desc}</p>
 
           {/* Stats row */}
           <div className="grid grid-cols-2 gap-3">

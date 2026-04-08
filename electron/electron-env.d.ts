@@ -21,7 +21,18 @@ declare namespace NodeJS {
   }
 }
 
+type PreloadIpcRenderer = Pick<
+  import("electron").IpcRenderer,
+  "on" | "off" | "send" | "invoke"
+> & {
+  windowControls: {
+    minimize: () => void
+    maximize: () => void
+    close: () => void
+  }
+}
+
 // Used in Renderer process, expose in `preload.ts`
 interface Window {
-  ipcRenderer: import('electron').IpcRenderer
+  ipcRenderer: PreloadIpcRenderer
 }

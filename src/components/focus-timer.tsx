@@ -1,3 +1,4 @@
+import { useState } from "react"
 import {
   Card,
   CardContent,
@@ -7,6 +8,17 @@ import {
 import { Button } from "@/components/ui/button"
 import { Play, Pause, RotateCcw, Plus, Minus, Volume2 } from "lucide-react"
 import { useTimer } from "@/lib/timer-store"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 const PRESETS = [
   { label: "25 min", value: 25 },
@@ -14,7 +26,12 @@ const PRESETS = [
   { label: "60 min", value: 60 },
 ]
 
+const MIN_CUSTOM_DURATION = 1
+const MAX_CUSTOM_DURATION = 300
+
 export function FocusTimer() {
+  const [customDialogOpen, setCustomDialogOpen] = useState(false)
+  const [customMinutes, setCustomMinutes] = useState("")
   const {
     duration,
     timeLeft,
@@ -27,6 +44,26 @@ export function FocusTimer() {
     toggleRunning,
     playAlarm
   } = useTimer()
+
+  const hasPresetMatch = PRESETS.some((preset) => preset.value === duration)
+  const parsedCustomMinutes = Number.parseInt(customMinutes, 10)
+  const isCustomDurationValid =
+    Number.isInteger(parsedCustomMinutes) &&
+    parsedCustomMinutes >= MIN_CUSTOM_DURATION &&
+    parsedCustomMinutes <= MAX_CUSTOM_DURATION
+
+  const openCustomDialog = () => {
+    setCustomMinutes(String(duration))
+    setCustomDialogOpen(true)
+  }
+
+  const handleCustomDurationSubmit = () => {
+    if (!isCustomDurationValid) return
+
+    setDuration(parsedCustomMinutes)
+    setTimeLeft(parsedCustomMinutes * 60)
+    setCustomDialogOpen(false)
+  }
 
   const totalSeconds = duration * 60
   const progress = ((totalSeconds - timeLeft) / totalSeconds) * 100
@@ -143,6 +180,58 @@ export function FocusTimer() {
                   {preset.label}
                 </Button>
               ))}
+              <Dialog open={customDialogOpen} onOpenChange={setCustomDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={!hasPresetMatch ? "default" : "outline"}
+                    size="sm"
+                    onClick={openCustomDialog}
+                  >
+                    Custom
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>Custom Timer</DialogTitle>
+                    <DialogDescription>
+                      Set a focus duration in minutes.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-2 py-2">
+                    <Label htmlFor="custom-timer-minutes">Minutes</Label>
+                    <Input
+                      id="custom-timer-minutes"
+                      type="number"
+                      min={MIN_CUSTOM_DURATION}
+                      max={MAX_CUSTOM_DURATION}
+                      step="1"
+                      placeholder="90"
+                      value={customMinutes}
+                      onChange={(event) => setCustomMinutes(event.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Choose any value from {MIN_CUSTOM_DURATION} to {MAX_CUSTOM_DURATION} minutes.
+                    </p>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setCustomDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleCustomDurationSubmit}
+                      disabled={!isCustomDurationValid}
+                    >
+                      Apply Timer
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 

@@ -25,6 +25,16 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 
 let win: BrowserWindow | null
 
+ipcMain.on('window-minimize', () => win?.minimize())
+ipcMain.on('window-maximize', () => {
+  if (win?.isMaximized()) {
+    win.unmaximize()
+  } else {
+    win?.maximize()
+  }
+})
+ipcMain.on('window-close', () => win?.close())
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1100,
@@ -32,21 +42,12 @@ function createWindow() {
     title: 'Aces',
     icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
     frame: false,
+    show: false,
+    backgroundColor: '#171717',
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
     },
   })
-
-  // Window control listeners
-  ipcMain.on('window-minimize', () => win?.minimize())
-  ipcMain.on('window-maximize', () => {
-    if (win?.isMaximized()) {
-      win.unmaximize()
-    } else {
-      win?.maximize()
-    }
-  })
-  ipcMain.on('window-close', () => win?.close())
 
   // Background throttling helps reduce CPU when the app is minified
   win.webContents.setBackgroundThrottling(true)
@@ -56,6 +57,10 @@ function createWindow() {
   } else {
     win.loadFile(path.join(RENDERER_DIST, 'index.html'))
   }
+
+  win.once('ready-to-show', () => {
+    win?.show()
+  })
 
   win.on('closed', () => {
     win = null

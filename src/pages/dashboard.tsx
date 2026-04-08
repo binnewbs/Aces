@@ -2,6 +2,7 @@ import { WeatherCard } from "@/components/weather-card"
 import { FocusTimer } from "@/components/focus-timer"
 import { AssignmentOverview } from "@/components/assignment-overview"
 import { ScheduleOverview } from "@/components/schedule-overview"
+import { CashflowOverview } from "@/components/cashflow-overview"
 
 export default function DashboardPage() {
   return (
@@ -12,6 +13,8 @@ export default function DashboardPage() {
           Your personal overview at a glance.
         </p>
       </div>
+
+      <CashflowOverview />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Left column: Weather + Focus Timer */}

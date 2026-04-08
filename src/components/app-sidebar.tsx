@@ -5,6 +5,7 @@ import {
   KanbanSquare,
   Calendar,
   StickyNote,
+  Wallet,
   ChevronRight,
 } from "lucide-react"
 
@@ -32,6 +33,11 @@ const data = {
       icon: LayoutDashboard,
     },
     {
+      title: "Cashflow",
+      url: "/cashflow",
+      icon: Wallet,
+    },
+    {
       title: "Assignments",
       url: "/assignments",
       icon: KanbanSquare,
@@ -52,6 +58,7 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation()
   const { profile } = useProfile()
+  const profileBio = profile.bio.trim() || "No bio set"
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -107,9 +114,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <AvatarImage src={profile.avatar || ""} alt={profile.username} />
                   <AvatarFallback className="rounded-lg">{profile.username.substring(0,2).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <div className="grid flex-1 text-left text-sm leading-tight group-data-[state=collapsed]:hidden">
                   <span className="truncate font-semibold">{profile.username}</span>
-                  <span className="truncate text-xs text-muted-foreground">Settings</span>
+                  <span className="relative h-4 overflow-hidden text-xs text-muted-foreground">
+                    <span className="absolute inset-0 truncate transition-all duration-200 group-hover/menu-button:-translate-y-full group-hover/menu-button:opacity-0">
+                      {profileBio}
+                    </span>
+                    <span className="absolute inset-0 truncate translate-y-full opacity-0 transition-all duration-200 group-hover/menu-button:translate-y-0 group-hover/menu-button:opacity-100">
+                      Settings
+                    </span>
+                  </span>
                 </div>
                 <ChevronRight className="ml-auto size-4 text-muted-foreground" />
               </Link>

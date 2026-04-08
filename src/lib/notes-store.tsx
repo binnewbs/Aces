@@ -32,7 +32,11 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(notes.length > 0 ? notes[0].id : null)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes))
+    const timeoutId = window.setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(notes))
+    }, 250)
+
+    return () => window.clearTimeout(timeoutId)
   }, [notes])
 
   const createNote = useCallback(() => {

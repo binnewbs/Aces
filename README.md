@@ -1,77 +1,84 @@
-# 🂡 Aces - All-in-One Productivity Hub
+# Aces
 
-Aces is a desktop productivity dashboard built with **Electron** and **React**. Designed specifically for students, it combines essential tools like an assignment manager, focus timer, and dynamic schedule into a single, cohesive, beautiful and minimalist interface.
+Aces is an all-in-one desktop productivity dashboard built with Electron, React, and TypeScript. It brings together assignments, schedule planning, notes, cashflow tracking, weather, and a focus timer in one app with a custom desktop UI.
 
 ![Aces Overview](public/icon.png)
 
-## ✨ Features
+## Features
 
-- **📊 Dynamic Dashboard**: A central hub featuring a live weather card, assignment overview, and focus timer.
-- **📅 Assignment Manager**: Full Kanban-style board to track and manage your college assignments.
-- **⏱️ Focus Timer**: A sleek, customizable Pomodoro-style timer to track deep work sessions.
-- **🗓️ Weekly Schedule**: Visual grid for managing classes, meetings, and personal tasks.
-- **📝 Notes & Tasks**: Integrated note-taking and profile management for personalized experiences.
-- **🎨 Premium UI**: Built with **Shadcn/UI** and custom CSS for a modern, sleek, and responsive aesthetic.
+- Dashboard with weather, focus timer, assignment overview, schedule overview, and cashflow summary
+- Kanban-style assignment board with create, edit, drag-and-drop status changes, and calendar-based due date picking
+- Focus timer with presets, custom timer lengths, and alarm sound
+- Weekly schedule grid with add/edit flows and 24-hour time input
+- Cashflow tracker with monthly filtering, monthly balance, edit/delete transactions, and calendar date picker
+- Notes workspace with autosaved notes and export tools
+- Profile and settings pages for profile info, weather city, cashflow currency, and theme preferences
+- Desktop title bar controls with a light/dark mode toggle
+- Startup loading screen for a smoother app launch
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-- **Core**: [React 18](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/)
-- **Desktop Wrapper**: [Electron](https://www.electronjs.org/)
-- **Build System**: [Vite 5](https://vitejs.dev/)
-- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/) + [Shadcn UI](https://ui.shadcn.com/)
-- **State Management**: [Zustand](https://github.com/pmndrs/zustand) (via custom stores)
-- **Icons**: [Lucide React](https://lucide.dev/)
+- React 18
+- TypeScript
+- Electron
+- Vite 5
+- Tailwind CSS 4
+- shadcn/ui
+- Radix UI primitives
+- `date-fns`
+- Lucide React
 
-## 🚀 Getting Started
+## State Management
+
+Aces uses local React stores and context-based state, plus a small external store for the focus timer. App data such as notes, assignments, schedule items, profile data, and cashflow transactions is persisted in `localStorage`.
+
+## Getting Started
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18 or higher recommended)
-- [npm](https://www.npmjs.com/)
+- Node.js 18+
+- npm
 
 ### Installation
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/binnewbs/Aces.git
-   cd Aces
-   ```
+```bash
+git clone https://github.com/binnewbs/Aces.git
+cd Aces
+npm install
+```
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+### Development
 
-3. **Start Development**:
-   ```bash
-   npm run dev
-   ```
+```bash
+npm run dev
+```
 
-### Building for Production
+### Production Build
 
-To create a production-ready installer for your OS:
 ```bash
 npm run build
 ```
-This will compile the application and create an installer in the `release/` folder using `electron-builder`.
 
-## 📂 Project Structure
+This builds the renderer, Electron process, and installer output via `electron-builder`.
 
-```bash
-├── electron/          # Electron main and preload processes
-├── src/               # React frontend source code
-│   ├── components/    # Reusable UI components (Shadcn + Custom)
-│   ├── pages/         # Page-level components (Dashboard, Assignments, etc.)
-│   ├── lib/           # Stores and utility functions
-│   └── hooks/         # Custom React hooks
-├── public/            # Static assets
-└── vite.config.ts     # Vite configuration
+## Project Structure
+
+```text
+electron/           Electron main and preload processes
+public/             Static assets like icons and audio
+src/
+  components/       Reusable UI and feature components
+  hooks/            Shared React hooks
+  lib/              Stores, utilities, and seed data
+  pages/            Top-level route pages
 ```
 
-## 📄 License
+## Notes
 
-This project is private and intended for personal use.
+- Weather data uses Open-Meteo and only requires a city name.
+- The app uses a frameless Electron window with custom window controls.
+- Theme preference can be changed from Settings or the title bar toggle.
 
----
+## License
 
-*Made with ♥ for productivity.*
+Private project for personal use.

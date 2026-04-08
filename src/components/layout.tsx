@@ -17,22 +17,28 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { AppSidebar } from "@/components/app-sidebar"
 import { useLocation, Link } from "react-router-dom"
-import { Minus, Square, X } from "lucide-react"
+import { Minus, Moon, Square, Sun, X } from "lucide-react"
+import { useTheme } from "@/components/theme-provider"
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const pathnames = location.pathname.split("/").filter((x) => x)
+  const { resolvedTheme, setTheme } = useTheme()
 
   const handleMinimize = () => {
-    (window as any).ipcRenderer?.windowControls?.minimize()
+    window.ipcRenderer?.windowControls?.minimize()
   }
 
   const handleMaximize = () => {
-    (window as any).ipcRenderer?.windowControls?.maximize()
+    window.ipcRenderer?.windowControls?.maximize()
   }
 
   const handleClose = () => {
-    (window as any).ipcRenderer?.windowControls?.close()
+    window.ipcRenderer?.windowControls?.close()
+  }
+
+  const handleToggleTheme = () => {
+    setTheme(resolvedTheme === "dark" ? "light" : "dark")
   }
 
   return (
@@ -78,6 +84,18 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
               {/* Window Controls - Right side of header */}
               <div className="flex items-center h-full app-region-no-drag -mr-4">
+                <button
+                  onClick={handleToggleTheme}
+                  className="flex h-full w-10 items-center justify-center hover:bg-muted/50 transition-colors"
+                  title={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                  aria-label={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                >
+                  {resolvedTheme === "dark" ? (
+                    <Sun className="size-3.5" />
+                  ) : (
+                    <Moon className="size-3.5" />
+                  )}
+                </button>
                 <button 
                   onClick={handleMinimize}
                   className="flex h-full w-10 items-center justify-center hover:bg-muted/50 transition-colors"

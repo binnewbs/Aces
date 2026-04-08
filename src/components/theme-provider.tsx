@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react"
+import { flushSync } from "react-dom"
 
 type Theme = "dark" | "light" | "system"
 
@@ -10,15 +11,21 @@ type ThemeProviderProps = {
 
 type ThemeProviderState = {
   theme: Theme
+  resolvedTheme: Exclude<Theme, "system">
   setTheme: (theme: Theme) => void
 }
 
 const initialState: ThemeProviderState = {
   theme: "system",
+  resolvedTheme: "dark",
   setTheme: () => null,
 }
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
+
+type DocumentWithViewTransition = Document & {
+  startViewTransition?: (update: () => void) => void
+}
 
 export function ThemeProvider({
   children,
@@ -29,30 +36,48 @@ export function ThemeProvider({
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   )
+  const [resolvedTheme, setResolvedTheme] = useState<Exclude<Theme, "system">>("dark")
 
   useEffect(() => {
     const root = window.document.documentElement
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
 
-    root.classList.remove("light", "dark")
+    const applyTheme = () => {
+      root.classList.remove("light", "dark")
 
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-        ? "dark"
-        : "light"
+      const nextResolvedTheme =
+        theme === "system"
+          ? mediaQuery.matches
+            ? "dark"
+            : "light"
+          : theme
 
-      root.classList.add(systemTheme)
-      return
+      root.classList.add(nextResolvedTheme)
+      setResolvedTheme(nextResolvedTheme)
     }
 
-    root.classList.add(theme)
+    applyTheme()
+    mediaQuery.addEventListener("change", applyTheme)
+
+    return () => mediaQuery.removeEventListener("change", applyTheme)
   }, [theme])
 
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme)
-      setTheme(theme)
+    resolvedTheme,
+    setTheme: (nextTheme: Theme) => {
+      localStorage.setItem(storageKey, nextTheme)
+
+      const documentWithTransition = document as DocumentWithViewTransition
+
+      if (documentWithTransition.startViewTransition) {
+        documentWithTransition.startViewTransition(() => {
+          flushSync(() => setTheme(nextTheme))
+        })
+        return
+      }
+
+      setTheme(nextTheme)
     },
   }
 

@@ -6,20 +6,36 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { ProfileForm } from "./profile-form"
-import { Save, CloudSun } from "lucide-react"
+import { Save, CloudSun, Wallet } from "lucide-react"
 import { useTheme } from "@/components/theme-provider"
+import { useCashflow } from "@/lib/cashflow-store"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function SettingsPage() {
-  const [apiKey, setApiKey] = useState(localStorage.getItem("aces-weather-api-key") || "")
   const [city, setCity] = useState(localStorage.getItem("aces-weather-city") || "Jakarta")
-  const [saved, setSaved] = useState(false)
+  const [weatherSaved, setWeatherSaved] = useState(false)
   const { theme, setTheme } = useTheme()
+  const { currency, setCurrency } = useCashflow()
+  const [localCurrency, setLocalCurrency] = useState(currency || "$")
+  const [cashflowSaved, setCashflowSaved] = useState(false)
 
   const handleSaveWeather = () => {
-    localStorage.setItem("aces-weather-api-key", apiKey)
+    localStorage.removeItem("aces-weather-api-key")
     localStorage.setItem("aces-weather-city", city)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    setWeatherSaved(true)
+    setTimeout(() => setWeatherSaved(false), 2000)
+  }
+
+  const handleSaveCashflow = () => {
+    setCurrency(localCurrency)
+    setCashflowSaved(true)
+    setTimeout(() => setCashflowSaved(false), 2000)
   }
 
   return (
@@ -33,9 +49,10 @@ export default function SettingsPage() {
       <Separator />
       
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-[400px]">
+        <TabsList className="grid w-full grid-cols-4 max-w-[500px]">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="weather">Weather</TabsTrigger>
+          <TabsTrigger value="cashflow">Cashflow</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
         </TabsList>
 
@@ -61,32 +78,19 @@ export default function SettingsPage() {
                 Weather Configuration
               </CardTitle>
               <CardDescription>
-                Configure your weather widget. Get a free API key from{" "}
+                Configure the location for your weather widget. Powered by{" "}
                 <a
-                  href="https://openweathermap.org/api"
+                  href="https://open-meteo.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="underline text-primary hover:text-primary/80"
                 >
-                  openweathermap.org
+                  Open-Meteo
                 </a>
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-6 max-w-lg">
-                <div className="grid gap-2">
-                  <Label htmlFor="api-key">API Key</Label>
-                  <Input
-                    id="api-key"
-                    type="password"
-                    placeholder="Enter your OpenWeatherMap API key"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                  />
-                  <p className="text-[0.8rem] text-muted-foreground">
-                    Your API key is stored locally and never shared.
-                  </p>
-                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="city">City</Label>
                   <Input
@@ -96,7 +100,7 @@ export default function SettingsPage() {
                     onChange={(e) => setCity(e.target.value)}
                   />
                   <p className="text-[0.8rem] text-muted-foreground">
-                    The city name for your weather data.
+                    The city name for your weather data. No API key required.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -104,9 +108,57 @@ export default function SettingsPage() {
                     <Save data-icon="inline-start" />
                     Save Weather Settings
                   </Button>
-                  {saved && (
+                  {weatherSaved && (
                     <span className="text-sm text-primary font-medium animate-in fade-in">
                       ✓ Saved! Reload the dashboard to see changes.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="cashflow" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="size-5" />
+                Cashflow Configuration
+              </CardTitle>
+              <CardDescription>
+                Set up your default preferences for the cashflow tracker.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6 max-w-lg">
+                <div className="grid gap-2">
+                  <Label htmlFor="currency">Currency Symbol</Label>
+                  <Select value={localCurrency} onValueChange={setLocalCurrency}>
+                    <SelectTrigger id="currency">
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="$">$ - USD</SelectItem>
+                      <SelectItem value="€">€ - EUR</SelectItem>
+                      <SelectItem value="£">£ - GBP</SelectItem>
+                      <SelectItem value="Rp">Rp - IDR</SelectItem>
+                      <SelectItem value="¥">¥ - JPY</SelectItem>
+                      <SelectItem value="A$">A$ - AUD</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[0.8rem] text-muted-foreground">
+                    The symbol used globally in your cashflow dashboard.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button onClick={handleSaveCashflow}>
+                    <Save data-icon="inline-start" />
+                    Save Cashflow Settings
+                  </Button>
+                  {cashflowSaved && (
+                    <span className="text-sm text-primary font-medium animate-in fade-in">
+                      ✓ Saved!
                     </span>
                   )}
                 </div>
