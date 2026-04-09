@@ -45,7 +45,7 @@ import {
   Trash2,
   Pencil,
 } from "lucide-react"
-import { format, parse } from "date-fns"
+import { format, parse, differenceInCalendarDays, parseISO, startOfDay } from "date-fns"
 import { cn } from "@/lib/utils"
 
 const columns: { id: AssignmentStatus; title: string; description: string }[] = [
@@ -73,7 +73,7 @@ const defaultFormData: AssignmentFormData = {
   title: "",
   course: "",
   description: "",
-  dueDate: new Date().toISOString().split("T")[0],
+  dueDate: format(new Date(), "yyyy-MM-dd"),
   priority: "medium",
   status: "todo",
 }
@@ -336,11 +336,9 @@ export default function AssignmentsPage() {
                   </div>
                 ) : (
                   columnAssignments.map((assignment) => {
-                    const dueDate = new Date(assignment.dueDate)
-                    const now = new Date()
-                    const daysUntil = Math.ceil(
-                      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-                    )
+                    const dueDate = startOfDay(parseISO(assignment.dueDate))
+                    const now = startOfDay(new Date())
+                    const daysUntil = differenceInCalendarDays(dueDate, now)
                     const isOverdue = daysUntil < 0 && assignment.status !== "done"
 
                     return (

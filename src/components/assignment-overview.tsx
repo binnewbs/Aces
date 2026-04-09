@@ -10,6 +10,7 @@ import { useAssignments, type AssignmentStatus, type AssignmentPriority } from "
 import { CalendarDays, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { differenceInCalendarDays, parseISO, startOfDay } from "date-fns"
 
 const statusConfig: Record<AssignmentStatus, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   todo: { label: "To Do", variant: "outline" },
@@ -82,11 +83,9 @@ export function AssignmentOverview() {
             </p>
           ) : (
             upcoming.map((assignment) => {
-              const dueDate = new Date(assignment.dueDate)
-              const now = new Date()
-              const daysUntil = Math.ceil(
-                (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-              )
+              const dueDate = startOfDay(parseISO(assignment.dueDate))
+              const now = startOfDay(new Date())
+              const daysUntil = differenceInCalendarDays(dueDate, now)
               const isOverdue = daysUntil < 0
               const isDueSoon = daysUntil >= 0 && daysUntil <= 2
 
