@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { eachDayOfInterval, endOfMonth, format, startOfMonth } from "date-fns"
+import { eachDayOfInterval, endOfMonth, format, startOfDay, startOfMonth, subDays } from "date-fns"
 import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, CalendarIcon, Pencil, TrendingDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Calendar } from "@/components/ui/calendar"
@@ -207,9 +207,16 @@ export default function CashflowPage() {
   }, [filteredTransactions, selectedMonth])
 
   const averageDailySpending = useMemo(() => {
-    if (dailySpendingData.length === 0) return 0
-    return totalExpense / dailySpendingData.length
-  }, [dailySpendingData.length, totalExpense])
+    const rollingWindowDays = 30
+    const windowStart = startOfDay(subDays(new Date(), rollingWindowDays - 1))
+
+    const rollingExpenseTotal = transactions
+      .filter((transaction) => transaction.type === "expense")
+      .filter((transaction) => new Date(transaction.date) >= windowStart)
+      .reduce((sum, transaction) => sum + transaction.amount, 0)
+
+    return rollingExpenseTotal / rollingWindowDays
+  }, [transactions])
 
   const spendingByCategoryData = useMemo(() => {
     const totals = filteredTransactions
@@ -449,7 +456,7 @@ export default function CashflowPage() {
               })}
             </div>
             <p className="text-xs text-muted-foreground pt-1">
-              Across {dailySpendingData.length} day{dailySpendingData.length === 1 ? "" : "s"} in this month
+              Based on the last 30 days
             </p>
           </CardContent>
         </Card>
