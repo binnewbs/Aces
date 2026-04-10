@@ -75,4 +75,4 @@ Private project for personal use.
 
 ---
 
-Built with ❤️ by [bintangm](https://github.com/bintangm)
+Built with ❤️
