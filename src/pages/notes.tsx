@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type DragEvent } from "react"
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState, useCallback, type DragEvent, type MouseEvent } from "react"
 import { useNotes } from "@/lib/notes-store"
 import { Button } from "@/components/ui/button"
 import {
@@ -47,6 +47,7 @@ import remarkGfm from "remark-gfm"
 export default function NotesPage() {
   const { notes, activeNoteId, setActiveNoteId, createNote, updateNote, deleteNote, deleteNotes, moveNote } = useNotes()
   const editorRef = useRef<HTMLTextAreaElement | null>(null)
+  const selectionRef = useRef({ start: 0, end: 0 })
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null)
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
@@ -203,13 +204,48 @@ export default function NotesPage() {
     setIsSelectionMode(false)
   }
 
-  const applyInlineFormat = (prefix: string, suffix: string, placeholder: string) => {
-    if (!activeNote || !editorRef.current) return
+  const syncSelectionFromEditor = useCallback(() => {
+    if (!editorRef.current) return
 
+    selectionRef.current = {
+      start: editorRef.current.selectionStart,
+      end: editorRef.current.selectionEnd,
+    }
+  }, [])
+
+  const handleToolbarAction = useCallback((event: MouseEvent<HTMLButtonElement>, action: () => void) => {
+    event.preventDefault()
+    event.stopPropagation()
+    syncSelectionFromEditor()
+    action()
+  }, [syncSelectionFromEditor])
+
+  const getEditorSnapshot = () => {
     const textarea = editorRef.current
-    const source = activeNote.content
-    const selectionStart = textarea.selectionStart
-    const selectionEnd = textarea.selectionEnd
+    if (!textarea) return null
+
+    const source = textarea.value
+    const isFocused = document.activeElement === textarea
+    const rawStart = isFocused ? textarea.selectionStart : selectionRef.current.start
+    const rawEnd = isFocused ? textarea.selectionEnd : selectionRef.current.end
+    const selectionStart = Math.max(0, Math.min(rawStart, source.length))
+    const selectionEnd = Math.max(selectionStart, Math.min(rawEnd, source.length))
+
+    return {
+      textarea,
+      source,
+      selectionStart,
+      selectionEnd,
+    }
+  }
+
+  const applyInlineFormat = useCallback((prefix: string, suffix: string, placeholder: string) => {
+    if (!activeNote) return
+
+    const snapshot = getEditorSnapshot()
+    if (!snapshot) return
+
+    const { textarea, source, selectionStart, selectionEnd } = snapshot
     const selectedText = source.slice(selectionStart, selectionEnd)
     const textToInsert = selectedText || placeholder
     const nextContent =
@@ -224,17 +260,19 @@ export default function NotesPage() {
     requestAnimationFrame(() => {
       textarea.focus()
       const contentStart = selectionStart + prefix.length
-      textarea.setSelectionRange(contentStart, contentStart + textToInsert.length)
+      const contentEnd = contentStart + textToInsert.length
+      textarea.setSelectionRange(contentStart, contentEnd)
+      selectionRef.current = { start: contentStart, end: contentEnd }
     })
-  }
+  }, [activeNote, updateNote])
 
-  const applyLinePrefix = (prefix: string, fallback: string) => {
-    if (!activeNote || !editorRef.current) return
+  const applyLinePrefix = useCallback((prefix: string, fallback: string) => {
+    if (!activeNote) return
 
-    const textarea = editorRef.current
-    const source = activeNote.content
-    const selectionStart = textarea.selectionStart
-    const selectionEnd = textarea.selectionEnd
+    const snapshot = getEditorSnapshot()
+    if (!snapshot) return
+
+    const { textarea, source, selectionStart, selectionEnd } = snapshot
     const hasSelection = selectionStart !== selectionEnd
 
     const selectedText = hasSelection ? source.slice(selectionStart, selectionEnd) : fallback
@@ -255,16 +293,17 @@ export default function NotesPage() {
       const selectStart = selectionStart + (hasSelection ? 0 : prefix.length)
       const selectEnd = hasSelection ? selectionStart + transformed.length : selectStart + fallback.length
       textarea.setSelectionRange(selectStart, selectEnd)
+      selectionRef.current = { start: selectStart, end: selectEnd }
     })
-  }
+  }, [activeNote, updateNote])
 
-  const applyNumberedList = () => {
-    if (!activeNote || !editorRef.current) return
+  const applyNumberedList = useCallback(() => {
+    if (!activeNote) return
 
-    const textarea = editorRef.current
-    const source = activeNote.content
-    const selectionStart = textarea.selectionStart
-    const selectionEnd = textarea.selectionEnd
+    const snapshot = getEditorSnapshot()
+    if (!snapshot) return
+
+    const { textarea, source, selectionStart, selectionEnd } = snapshot
     const hasSelection = selectionStart !== selectionEnd
 
     const selectedText = hasSelection ? source.slice(selectionStart, selectionEnd) : "First item"
@@ -285,8 +324,9 @@ export default function NotesPage() {
       const selectStart = selectionStart + (hasSelection ? 0 : 3)
       const selectEnd = hasSelection ? selectionStart + transformed.length : selectStart + "First item".length
       textarea.setSelectionRange(selectStart, selectEnd)
+      selectionRef.current = { start: selectStart, end: selectEnd }
     })
-  }
+  }, [activeNote, updateNote])
 
   return (
     <>
@@ -409,76 +449,24 @@ export default function NotesPage() {
             ) : (
               <div className="flex flex-col gap-1 p-2 pr-3">
                 {notes.map((note) => (
-                  <ContextMenu key={note.id}>
-                    <ContextMenuTrigger asChild>
-                      <button
-                        type="button"
-                        draggable={!isSelectionMode}
-                        onClick={() => {
-                          if (isSelectionMode) {
-                            toggleNoteSelection(note.id)
-                            return
-                          }
-
-                          setActiveNoteId(note.id)
-                        }}
-                        onDragStart={(event) => handleDragStart(event, note.id)}
-                        onDragOver={(event) => handleDragOver(event, note.id)}
-                        onDrop={(event) => handleDrop(event, note.id)}
-                        onDragEnd={resetDragState}
-                        aria-grabbed={draggedNoteId === note.id}
-                        aria-pressed={isSelectionMode ? selectedNoteIdSet.has(note.id) : undefined}
-                        className={cn(
-                          "flex w-full items-start gap-2 rounded-md p-3 text-left transition-colors hover:bg-accent",
-                          !isSelectionMode && "cursor-grab active:cursor-grabbing",
-                          activeNoteId === note.id ? "bg-accent/80" : "bg-transparent",
-                          draggedNoteId === note.id && "opacity-60",
-                          dropTargetId === note.id && draggedNoteId !== note.id && !isSelectionMode && "bg-accent ring-1 ring-primary/30",
-                          isSelectionMode && selectedNoteIdSet.has(note.id) && "bg-accent ring-1 ring-primary/30"
-                        )}
-                      >
-                        {isSelectionMode && (
-                          <span className="mt-0.5 text-muted-foreground">
-                            {selectedNoteIdSet.has(note.id) ? (
-                              <Check className="size-4 text-primary" />
-                            ) : (
-                              <Square className="size-4" />
-                            )}
-                          </span>
-                        )}
-                        <span className="flex min-w-0 flex-1 flex-col gap-1">
-                          <span className="w-full truncate text-sm font-medium">
-                            {getNoteTitle(note.content)}
-                          </span>
-                          <span className="flex w-full items-center justify-between text-xs text-muted-foreground">
-                            {getFormattedDate(note.lastModified)}
-                          </span>
-                        </span>
-                        {!isSelectionMode && (
-                          <span
-                            aria-hidden="true"
-                            className="mt-0.5 shrink-0 text-muted-foreground/70"
-                          >
-                            <GripVertical className="size-4" />
-                          </span>
-                        )}
-                      </button>
-                    </ContextMenuTrigger>
-                    {!isSelectionMode && (
-                      <ContextMenuContent>
-                        <ContextMenuItem
-                          variant="destructive"
-                          onSelect={() => {
-                            setActiveNoteId(note.id)
-                            setContextDeleteNoteId(note.id)
-                          }}
-                        >
-                          <Trash2 />
-                          Delete Note
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    )}
-                  </ContextMenu>
+                  <NoteSidebarItem
+                    key={note.id}
+                    note={note}
+                    isActive={activeNoteId === note.id}
+                    isSelectionMode={isSelectionMode}
+                    isSelected={selectedNoteIdSet.has(note.id)}
+                    isDragged={draggedNoteId === note.id}
+                    isDropTarget={dropTargetId === note.id}
+                    onSelect={setActiveNoteId}
+                    onToggleSelection={toggleNoteSelection}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    onDragEnd={resetDragState}
+                    onDelete={setContextDeleteNoteId}
+                    getNoteTitle={getNoteTitle}
+                    getFormattedDate={getFormattedDate}
+                  />
                 ))}
               </div>
             )}
@@ -543,98 +531,12 @@ export default function NotesPage() {
                   <TabsTrigger value="preview">Preview</TabsTrigger>
                 </TabsList>
                 {editorView === "edit" && (
-                  <div className="ml-auto flex items-center gap-1.5 overflow-x-auto">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      onClick={() => applyInlineFormat("**", "**", "bold text")}
-                      title="Bold"
-                      aria-label="Bold"
-                    >
-                      <Bold />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      onClick={() => applyInlineFormat("*", "*", "italic text")}
-                      title="Italic"
-                      aria-label="Italic"
-                    >
-                      <Italic />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      onClick={() => applyLinePrefix("# ", "Heading")}
-                      title="Heading"
-                      aria-label="Heading"
-                    >
-                      <Heading1 />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      onClick={() => applyLinePrefix("- ", "List item")}
-                      title="Bulleted List"
-                      aria-label="Bulleted List"
-                    >
-                      <List />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      onClick={applyNumberedList}
-                      title="Numbered List"
-                      aria-label="Numbered List"
-                    >
-                      <ListOrdered />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      onClick={() => applyLinePrefix("- [ ] ", "Task")}
-                      title="Checklist"
-                      aria-label="Checklist"
-                    >
-                      <ListChecks />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      onClick={() => applyLinePrefix("> ", "Quote")}
-                      title="Quote"
-                      aria-label="Quote"
-                    >
-                      <Quote />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      onClick={() => applyInlineFormat("`", "`", "code")}
-                      title="Inline Code"
-                      aria-label="Inline Code"
-                    >
-                      <Code />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      onClick={() => applyInlineFormat("[", "](https://)", "link text")}
-                      title="Link"
-                      aria-label="Insert Link"
-                    >
-                      <Link2 />
-                    </Button>
-                  </div>
+                  <NoteToolbar
+                    onApplyInlineFormat={applyInlineFormat}
+                    onApplyLinePrefix={applyLinePrefix}
+                    onApplyNumberedList={applyNumberedList}
+                    onHandleAction={handleToolbarAction}
+                  />
                 )}
               </div>
               <TabsContent value="edit" className="mt-0 flex min-h-0 flex-1">
@@ -645,6 +547,10 @@ export default function NotesPage() {
                     placeholder="Write your note in Markdown..."
                     value={activeNote.content}
                     onChange={(e) => updateNote(activeNote.id, e.target.value)}
+                    onSelect={syncSelectionFromEditor}
+                    onKeyUp={syncSelectionFromEditor}
+                    onMouseUp={syncSelectionFromEditor}
+                    onBlur={syncSelectionFromEditor}
                     autoFocus
                   />
                 </div>
@@ -678,3 +584,220 @@ export default function NotesPage() {
     </>
   )
 }
+
+const NoteSidebarItem = memo(({
+  note,
+  isActive,
+  isSelectionMode,
+  isSelected,
+  isDragged,
+  isDropTarget,
+  onSelect,
+  onToggleSelection,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  onDelete,
+  getNoteTitle,
+  getFormattedDate,
+}: {
+  note: any
+  isActive: boolean
+  isSelectionMode: boolean
+  isSelected: boolean
+  isDragged: boolean
+  isDropTarget: boolean
+  onSelect: (id: string) => void
+  onToggleSelection: (id: string) => void
+  onDragStart: (event: DragEvent<HTMLButtonElement>, id: string) => void
+  onDragOver: (event: DragEvent<HTMLButtonElement>, id: string) => void
+  onDrop: (event: DragEvent<HTMLButtonElement>, id: string) => void
+  onDragEnd: () => void
+  onDelete: (id: string) => void
+  getNoteTitle: (content: string) => string
+  getFormattedDate: (timestamp: number) => string
+}) => {
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <button
+          type="button"
+          draggable={!isSelectionMode}
+          onClick={() => {
+            if (isSelectionMode) {
+              onToggleSelection(note.id)
+              return
+            }
+            onSelect(note.id)
+          }}
+          onDragStart={(event) => onDragStart(event, note.id)}
+          onDragOver={(event) => onDragOver(event, note.id)}
+          onDrop={(event) => onDrop(event, note.id)}
+          onDragEnd={onDragEnd}
+          aria-grabbed={isDragged}
+          aria-pressed={isSelectionMode ? isSelected : undefined}
+          className={cn(
+            "flex w-full items-start gap-2 rounded-md p-3 text-left transition-colors hover:bg-accent",
+            !isSelectionMode && "cursor-grab active:cursor-grabbing",
+            isActive ? "bg-accent/80" : "bg-transparent",
+            isDragged && "opacity-60",
+            isDropTarget && !isDragged && !isSelectionMode && "bg-accent ring-1 ring-primary/30",
+            isSelectionMode && isSelected && "bg-accent ring-1 ring-primary/30"
+          )}
+        >
+          {isSelectionMode && (
+            <span className="mt-0.5 text-muted-foreground">
+              {isSelected ? (
+                <Check className="size-4 text-primary" />
+              ) : (
+                <Square className="size-4" />
+              )}
+            </span>
+          )}
+          <span className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="w-full truncate text-sm font-medium">
+              {getNoteTitle(note.content)}
+            </span>
+            <span className="flex w-full items-center justify-between text-xs text-muted-foreground">
+              {getFormattedDate(note.lastModified)}
+            </span>
+          </span>
+          {!isSelectionMode && (
+            <span
+              aria-hidden="true"
+              className="mt-0.5 shrink-0 text-muted-foreground/70"
+            >
+              <GripVertical className="size-4" />
+            </span>
+          )}
+        </button>
+      </ContextMenuTrigger>
+      {!isSelectionMode && (
+        <ContextMenuContent>
+          <ContextMenuItem
+            variant="destructive"
+            onSelect={() => {
+              onSelect(note.id)
+              onDelete(note.id)
+            }}
+          >
+            <Trash2 className="size-4" />
+            Delete Note
+          </ContextMenuItem>
+        </ContextMenuContent>
+      )}
+    </ContextMenu>
+  )
+})
+
+NoteSidebarItem.displayName = "NoteSidebarItem"
+
+const NoteToolbar = memo(({
+  onApplyInlineFormat,
+  onApplyLinePrefix,
+  onApplyNumberedList,
+  onHandleAction,
+}: {
+  onApplyInlineFormat: (p: string, s: string, ph: string) => void
+  onApplyLinePrefix: (p: string, f: string) => void
+  onApplyNumberedList: () => void
+  onHandleAction: (e: MouseEvent<HTMLButtonElement>, action: () => void) => void
+}) => {
+  return (
+    <div className="ml-auto flex items-center gap-1.5 overflow-y-hidden overflow-x-auto scrollbar-none py-1 px-1">
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        onMouseDown={(e) => onHandleAction(e, () => onApplyInlineFormat("**", "**", "bold text"))}
+        title="Bold"
+        aria-label="Bold"
+      >
+        <Bold />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        onMouseDown={(e) => onHandleAction(e, () => onApplyInlineFormat("*", "*", "italic text"))}
+        title="Italic"
+        aria-label="Italic"
+      >
+        <Italic />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        onMouseDown={(e) => onHandleAction(e, () => onApplyLinePrefix("# ", "Heading"))}
+        title="Heading"
+        aria-label="Heading"
+      >
+        <Heading1 />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        onMouseDown={(e) => onHandleAction(e, () => onApplyLinePrefix("- ", "List item"))}
+        title="Bulleted List"
+        aria-label="Bulleted List"
+      >
+        <List />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        onMouseDown={(e) => onHandleAction(e, onApplyNumberedList)}
+        title="Numbered List"
+        aria-label="Numbered List"
+      >
+        <ListOrdered />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        onMouseDown={(e) => onHandleAction(e, () => onApplyLinePrefix("- [ ] ", "Task"))}
+        title="Checklist"
+        aria-label="Checklist"
+      >
+        <ListChecks />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        onMouseDown={(e) => onHandleAction(e, () => onApplyLinePrefix("> ", "Quote"))}
+        title="Quote"
+        aria-label="Quote"
+      >
+        <Quote />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        onMouseDown={(e) => onHandleAction(e, () => onApplyInlineFormat("`", "`", "code"))}
+        title="Inline Code"
+        aria-label="Inline Code"
+      >
+        <Code />
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        onMouseDown={(e) => onHandleAction(e, () => onApplyInlineFormat("[", "](https://)", "link text"))}
+        title="Link"
+        aria-label="Insert Link"
+      >
+        <Link2 />
+      </Button>
+    </div>
+  )
+})
+
+NoteToolbar.displayName = "NoteToolbar"
