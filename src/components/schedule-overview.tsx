@@ -17,18 +17,12 @@ const colorThemes = {
 import { useMemo } from "react"
 
 export function ScheduleOverview() {
-  const { classes } = useSchedule();
+  const { classes } = useSchedule()
 
-  // Ideally, get current day. For mock purposes, let's just pick 'Monday'.
-  const date = new Date();
-  const index = date.getDay(); // 0 is Sunday, 1 is Monday
-  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  let currentDay = dayNames[index] as DayOfWeek | "Sunday" | "Saturday";
-  
-  // If it's the weekend, default to Monday
-  if (currentDay === "Saturday" || currentDay === "Sunday") {
-    currentDay = "Monday";
-  }
+  const date = new Date()
+  const index = date.getDay() // 0 is Sunday, 1 is Monday
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+  const currentDay = dayNames[index] as DayOfWeek | "Sunday" | "Saturday"
 
   const todaysClasses = useMemo(() => {
     return classes

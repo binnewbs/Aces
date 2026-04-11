@@ -14,8 +14,8 @@ Aces is a cross-platform desktop productivity suite designed to streamline your 
   - Automated "Most Spent Category" insights.
 - 🎓 **Assignment Board**: Kanban-style tracking for student/professional projects with drag-and-drop status changes and calendar-based due dates.
 - ⏱️ **Focus Timer**: Built-in Pomodoro-style timer with customizable presets and audio alerts.
-- 📝 **Notes Workspace**: Minimalist digital scratchpad with autosave and export capabilities.
-- 📅 **Schedule Manager**: Integrated 18-hour weekly grid for managing appointments and focus blocks.
+- 📝 **Notes Workspace**: Minimalist digital markdown scratchpad with autosave and export capabilities.
+- 📅 **Schedule Manager**: Integrated 24-hour weekly grid for managing appointments and focus blocks.
 - 🎨 **Modern Aesthetics**: Built with a sleek OKLCH-based design system, Geist typography, and smooth micro-animations.
 - 🌓 **Adaptive Themes**: Refined Dark and Light modes with a seamless toggle.
 

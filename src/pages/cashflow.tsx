@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useCashflow, type Transaction } from "@/lib/cashflow-store"
 import { CurrencyPrompt } from "@/components/currency-prompt"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -68,6 +68,8 @@ const CATEGORIES = [
   "Others"
 ]
 
+const TRANSACTIONS_PER_PAGE = 10
+
 const chartConfig = {
   spending: {
     label: "Daily spending",
@@ -98,6 +100,7 @@ export default function CashflowPage() {
   const [editDescription, setEditDescription] = useState("")
   const [editDate, setEditDate] = useState<Date>(new Date())
   const [isEditDatePickerOpen, setIsEditDatePickerOpen] = useState(false)
+  const [currentTransactionsPage, setCurrentTransactionsPage] = useState(1)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -149,38 +152,79 @@ export default function CashflowPage() {
     closeEditDialog()
   }
 
-  // Get unique months from transactions plus current month
-  const uniqueMonths = Array.from(
-    new Set([
-      currentMonthStr,
-      ...transactions.map((t) => format(new Date(t.date), "yyyy-MM"))
-    ])
-  ).sort((a, b) => b.localeCompare(a))
-
-  // Filter for selected month
-  const filteredTransactions = transactions.filter(
-    (t) => format(new Date(t.date), "yyyy-MM") === selectedMonth
+  const uniqueMonths = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          currentMonthStr,
+          ...transactions.map((transaction) => format(new Date(transaction.date), "yyyy-MM")),
+        ])
+      ).sort((a, b) => b.localeCompare(a)),
+    [currentMonthStr, transactions]
   )
 
-  // Derived Stats (Monthly)
-  const totalIncome = filteredTransactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0)
-
-  const totalExpense = filteredTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0)
-
-  // Monthly Balance
-  const balance = filteredTransactions.reduce(
-    (sum, t) => sum + (t.type === "income" ? t.amount : -t.amount),
-    0
+  const filteredTransactions = useMemo(
+    () =>
+      transactions.filter(
+        (transaction) => format(new Date(transaction.date), "yyyy-MM") === selectedMonth
+      ),
+    [transactions, selectedMonth]
   )
 
-  // Sort newest first
-  const sortedTransactions = [...filteredTransactions].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  const { totalIncome, totalExpense, balance } = useMemo(
+    () =>
+      filteredTransactions.reduce(
+        (accumulator, transaction) => {
+          if (transaction.type === "income") {
+            accumulator.totalIncome += transaction.amount
+            accumulator.balance += transaction.amount
+          } else {
+            accumulator.totalExpense += transaction.amount
+            accumulator.balance -= transaction.amount
+          }
+
+          return accumulator
+        },
+        { totalIncome: 0, totalExpense: 0, balance: 0 }
+      ),
+    [filteredTransactions]
   )
+
+  const sortedTransactions = useMemo(
+    () =>
+      [...filteredTransactions].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      ),
+    [filteredTransactions]
+  )
+
+  const totalTransactionPages = useMemo(
+    () => Math.max(1, Math.ceil(sortedTransactions.length / TRANSACTIONS_PER_PAGE)),
+    [sortedTransactions.length]
+  )
+
+  const transactionStartIndex = (currentTransactionsPage - 1) * TRANSACTIONS_PER_PAGE
+  const transactionEndIndex = Math.min(
+    transactionStartIndex + TRANSACTIONS_PER_PAGE,
+    sortedTransactions.length
+  )
+
+  const paginatedTransactions = useMemo(
+    () =>
+      sortedTransactions.slice(
+        transactionStartIndex,
+        transactionStartIndex + TRANSACTIONS_PER_PAGE
+      ),
+    [sortedTransactions, transactionStartIndex]
+  )
+
+  useEffect(() => {
+    setCurrentTransactionsPage(1)
+  }, [selectedMonth])
+
+  useEffect(() => {
+    setCurrentTransactionsPage((prev) => Math.min(prev, totalTransactionPages))
+  }, [totalTransactionPages])
 
   const dailySpendingData = useMemo(() => {
     const monthStart = new Date(`${selectedMonth}-01T00:00:00`)
@@ -247,18 +291,22 @@ export default function CashflowPage() {
     [spendingByCategoryData]
   )
 
-  const highestSpendingDay = dailySpendingData.reduce<{
-    date: string
-    label: string
-    shortLabel: string
-    spending: number
-  } | null>((highest, current) => {
-    if (!highest || current.spending > highest.spending) {
-      return current
-    }
+  const highestSpendingDay = useMemo(
+    () =>
+      dailySpendingData.reduce<{
+        date: string
+        label: string
+        shortLabel: string
+        spending: number
+      } | null>((highest, current) => {
+        if (!highest || current.spending > highest.spending) {
+          return current
+        }
 
-    return highest
-  }, null)
+        return highest
+      }, null),
+    [dailySpendingData]
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -633,59 +681,92 @@ export default function CashflowPage() {
               <p className="text-sm">Click "Add Transaction" to start tracking.</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="w-[96px] text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedTransactions.map((tx) => (
-                  <TableRow key={tx.id}>
-                    <TableCell className="font-medium">
-                      {format(new Date(tx.date), "MMM d, yyyy")}
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{tx.description || "-"}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{tx.category}</Badge>
-                    </TableCell>
-                    <TableCell className={`text-right font-semibold ${tx.type === "income" ? "text-green-500" : ""}`}>
-                      {tx.type === "income" ? "+" : "-"}{currency}{tx.amount.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-muted-foreground"
-                          onClick={() => openEditDialog(tx)}
-                        >
-                          <Pencil className="size-4" />
-                          <span className="sr-only">Edit</span>
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => removeTransaction(tx.id)}
-                        >
-                          <Trash2 className="size-4" />
-                          <span className="sr-only">Delete</span>
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="flex flex-col gap-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-[96px] text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paginatedTransactions.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell className="font-medium">
+                        {format(new Date(tx.date), "MMM d, yyyy")}
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{tx.description || "-"}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{tx.category}</Badge>
+                      </TableCell>
+                      <TableCell className={`text-right font-semibold ${tx.type === "income" ? "text-green-500" : ""}`}>
+                        {tx.type === "income" ? "+" : "-"}{currency}{tx.amount.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-muted-foreground"
+                            onClick={() => openEditDialog(tx)}
+                          >
+                            <Pencil className="size-4" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeTransaction(tx.id)}
+                          >
+                            <Trash2 className="size-4" />
+                            <span className="sr-only">Delete</span>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {sortedTransactions.length > TRANSACTIONS_PER_PAGE && (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {transactionStartIndex + 1}-{transactionEndIndex} of {sortedTransactions.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentTransactionsPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentTransactionsPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentTransactionsPage} of {totalTransactionPages}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentTransactionsPage((prev) => Math.min(totalTransactionPages, prev + 1))}
+                      disabled={currentTransactionsPage === totalTransactionPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

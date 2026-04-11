@@ -1,44 +1,87 @@
-import { app as n, ipcMain as s, BrowserWindow as t } from "electron";
-import { fileURLToPath as a } from "node:url";
-import o from "node:path";
-n.name = "Aces";
-const r = o.dirname(a(import.meta.url));
-process.env.APP_ROOT = o.join(r, "..");
-const i = process.env.VITE_DEV_SERVER_URL, R = o.join(process.env.APP_ROOT, "dist-electron"), l = o.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = i ? o.join(process.env.APP_ROOT, "public") : l;
-let e;
-s.on("window-minimize", () => e == null ? void 0 : e.minimize());
-s.on("window-maximize", () => {
-  e != null && e.isMaximized() ? e.unmaximize() : e == null || e.maximize();
+import { app, ipcMain, BrowserWindow, shell } from "electron";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+app.name = "Aces";
+const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
+process.env.APP_ROOT = path.join(__dirname$1, "..");
+const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
+const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
+const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
+let win;
+ipcMain.on("window-minimize", () => win == null ? void 0 : win.minimize());
+ipcMain.on("window-maximize", () => {
+  if (win == null ? void 0 : win.isMaximized()) {
+    win.unmaximize();
+  } else {
+    win == null ? void 0 : win.maximize();
+  }
 });
-s.on("window-close", () => e == null ? void 0 : e.close());
-function c() {
-  e = new t({
+ipcMain.on("window-close", () => win == null ? void 0 : win.close());
+function shouldOpenExternally(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "file:") return false;
+    if (VITE_DEV_SERVER_URL) {
+      const devOrigin = new URL(VITE_DEV_SERVER_URL).origin;
+      if (parsed.origin === devOrigin) return false;
+    }
+    return ["http:", "https:", "mailto:", "tel:"].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+function createWindow() {
+  win = new BrowserWindow({
     width: 1180,
     height: 715,
     title: "Aces",
-    icon: o.join(process.env.VITE_PUBLIC, "icon.png"),
-    frame: !1,
-    show: !1,
+    icon: path.join(process.env.VITE_PUBLIC, "icon.png"),
+    frame: false,
+    show: false,
     backgroundColor: "#171717",
     webPreferences: {
-      preload: o.join(r, "preload.mjs")
+      preload: path.join(__dirname$1, "preload.mjs")
     }
-  }), e.webContents.setBackgroundThrottling(!0), i ? e.loadURL(i) : e.loadFile(o.join(l, "index.html")), e.once("ready-to-show", () => {
-    e == null || e.show();
-  }), e.on("closed", () => {
-    e = null;
+  });
+  win.webContents.setBackgroundThrottling(true);
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (shouldOpenExternally(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
+  win.webContents.on("will-navigate", (event, url) => {
+    if (!shouldOpenExternally(url)) return;
+    event.preventDefault();
+    void shell.openExternal(url);
+  });
+  if (VITE_DEV_SERVER_URL) {
+    win.loadURL(VITE_DEV_SERVER_URL);
+  } else {
+    win.loadFile(path.join(RENDERER_DIST, "index.html"));
+  }
+  win.once("ready-to-show", () => {
+    win == null ? void 0 : win.show();
+  });
+  win.on("closed", () => {
+    win = null;
   });
 }
-n.on("window-all-closed", () => {
-  process.platform !== "darwin" && (n.quit(), e = null);
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
+    win = null;
+  }
 });
-n.on("activate", () => {
-  t.getAllWindows().length === 0 && c();
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
 });
-n.whenReady().then(c);
+app.whenReady().then(createWindow);
 export {
-  R as MAIN_DIST,
-  l as RENDERER_DIST,
-  i as VITE_DEV_SERVER_URL
+  MAIN_DIST,
+  RENDERER_DIST,
+  VITE_DEV_SERVER_URL
 };

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 app.name = 'Aces'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -35,6 +35,22 @@ ipcMain.on('window-maximize', () => {
 })
 ipcMain.on('window-close', () => win?.close())
 
+function shouldOpenExternally(url: string) {
+  try {
+    const parsed = new URL(url)
+
+    if (parsed.protocol === 'file:') return false
+    if (VITE_DEV_SERVER_URL) {
+      const devOrigin = new URL(VITE_DEV_SERVER_URL).origin
+      if (parsed.origin === devOrigin) return false
+    }
+
+    return ['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol)
+  } catch {
+    return false
+  }
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1180,
@@ -51,6 +67,21 @@ function createWindow() {
 
   // Background throttling helps reduce CPU when the app is minified
   win.webContents.setBackgroundThrottling(true)
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (shouldOpenExternally(url)) {
+      void shell.openExternal(url)
+    }
+
+    return { action: 'deny' }
+  })
+
+  win.webContents.on('will-navigate', (event, url) => {
+    if (!shouldOpenExternally(url)) return
+
+    event.preventDefault()
+    void shell.openExternal(url)
+  })
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
