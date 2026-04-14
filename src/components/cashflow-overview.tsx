@@ -1,11 +1,11 @@
 import { useState } from "react"
 import { useCashflow } from "@/lib/cashflow-store"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowUpCircle, ArrowDownCircle, Wallet, ChevronLeft, ChevronRight, ReceiptText, TrendingDown } from "lucide-react"
+import { ArrowUpCircle, ArrowDownCircle, Wallet, ChevronLeft, ChevronRight, ReceiptText, CalendarDays } from "lucide-react"
 import { CurrencyPrompt } from "./currency-prompt"
 import { Button } from "./ui/button"
 import { Link } from "react-router-dom"
-import { format, isToday } from "date-fns"
+import { format, isToday, subDays, startOfDay } from "date-fns"
 
 export function CashflowOverview() {
   const { transactions, currency } = useCashflow()
@@ -54,15 +54,10 @@ export function CashflowOverview() {
     .filter((t) => t.type === "expense" && isToday(new Date(t.date)))
     .reduce((sum, t) => sum + t.amount, 0)
 
-  const expenseByCategory = monthlyTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + t.amount
-      return acc
-    }, {} as Record<string, number>)
-
-  const mostSpentCategory = Object.entries(expenseByCategory)
-    .sort(([, a], [, b]) => b - a)[0]
+  const sevenDaysAgo = startOfDay(subDays(now, 6))
+  const last7DaysSpending = transactions
+    .filter((t) => t.type === "expense" && new Date(t.date) >= sevenDaysAgo)
+    .reduce((sum, t) => sum + t.amount, 0)
 
   const [year, monthNum] = selectedMonth.split("-")
   const displayMonth = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleString('default', { month: 'short' })
@@ -145,11 +140,11 @@ export function CashflowOverview() {
               </div>
               <div className="flex flex-col gap-1 rounded-lg bg-muted/50 px-4 py-2 min-w-[120px]">
                 <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                  <TrendingDown className="size-3" />
-                  Top Spending
+                  <CalendarDays className="size-3 text-orange-500" />
+                  Last 7 Days
                 </span>
-                <span className="text-lg font-semibold truncate max-w-[100px]">
-                  {mostSpentCategory ? mostSpentCategory[0] : "None"}
+                <span className="text-lg font-semibold">
+                  {last7DaysSpending > 0 ? "-" : ""}{currency}{last7DaysSpending.toLocaleString()}
                 </span>
               </div>
             </div>

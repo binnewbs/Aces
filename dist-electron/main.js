@@ -1,87 +1,87 @@
-import { app, ipcMain, BrowserWindow, shell } from "electron";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
-app.name = "Aces";
-const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
-process.env.APP_ROOT = path.join(__dirname$1, "..");
-const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
-const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
-const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
-let win;
-ipcMain.on("window-minimize", () => win == null ? void 0 : win.minimize());
-ipcMain.on("window-maximize", () => {
-  if (win == null ? void 0 : win.isMaximized()) {
-    win.unmaximize();
-  } else {
-    win == null ? void 0 : win.maximize();
+import { app as s, ipcMain as a, dialog as d, BrowserWindow as f, shell as l } from "electron";
+import { fileURLToPath as h } from "node:url";
+import r from "node:path";
+import { writeFile as w, readFile as P } from "node:fs/promises";
+s.name = "Aces";
+const p = r.dirname(h(import.meta.url));
+process.env.APP_ROOT = r.join(p, "..");
+const i = process.env.VITE_DEV_SERVER_URL, O = r.join(process.env.APP_ROOT, "dist-electron"), u = r.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = i ? r.join(process.env.APP_ROOT, "public") : u;
+let e;
+a.on("window-minimize", () => e == null ? void 0 : e.minimize());
+a.on("window-maximize", () => {
+  e != null && e.isMaximized() ? e.unmaximize() : e == null || e.maximize();
+});
+a.on("window-close", () => e == null ? void 0 : e.close());
+a.handle("export-data", async (t, n) => {
+  try {
+    const o = await d.showSaveDialog({
+      title: "Export Aces Data",
+      defaultPath: `aces-backup-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`,
+      filters: [{ name: "JSON Files", extensions: ["json"] }]
+    });
+    return o.canceled || !o.filePath ? { success: !1, canceled: !0 } : (await w(o.filePath, n, "utf-8"), { success: !0, filePath: o.filePath });
+  } catch (o) {
+    return { success: !1, error: String(o) };
   }
 });
-ipcMain.on("window-close", () => win == null ? void 0 : win.close());
-function shouldOpenExternally(url) {
+a.handle("import-data", async () => {
   try {
-    const parsed = new URL(url);
-    if (parsed.protocol === "file:") return false;
-    if (VITE_DEV_SERVER_URL) {
-      const devOrigin = new URL(VITE_DEV_SERVER_URL).origin;
-      if (parsed.origin === devOrigin) return false;
+    const t = await d.showOpenDialog({
+      title: "Import Aces Data",
+      filters: [{ name: "JSON Files", extensions: ["json"] }],
+      properties: ["openFile"]
+    });
+    if (t.canceled || t.filePaths.length === 0)
+      return { success: !1, canceled: !0 };
+    const n = await P(t.filePaths[0], "utf-8");
+    return { success: !0, data: JSON.parse(n) };
+  } catch (t) {
+    return { success: !1, error: String(t) };
+  }
+});
+function c(t) {
+  try {
+    const n = new URL(t);
+    if (n.protocol === "file:") return !1;
+    if (i) {
+      const o = new URL(i).origin;
+      if (n.origin === o) return !1;
     }
-    return ["http:", "https:", "mailto:", "tel:"].includes(parsed.protocol);
+    return ["http:", "https:", "mailto:", "tel:"].includes(n.protocol);
   } catch {
-    return false;
+    return !1;
   }
 }
-function createWindow() {
-  win = new BrowserWindow({
+function m() {
+  e = new f({
     width: 1180,
     height: 715,
     title: "Aces",
-    icon: path.join(process.env.VITE_PUBLIC, "icon.png"),
-    frame: false,
-    show: false,
+    icon: r.join(process.env.VITE_PUBLIC, "icon.png"),
+    frame: !1,
+    show: !1,
     backgroundColor: "#171717",
     webPreferences: {
-      preload: path.join(__dirname$1, "preload.mjs")
+      preload: r.join(p, "preload.mjs")
     }
-  });
-  win.webContents.setBackgroundThrottling(true);
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (shouldOpenExternally(url)) {
-      void shell.openExternal(url);
-    }
-    return { action: "deny" };
-  });
-  win.webContents.on("will-navigate", (event, url) => {
-    if (!shouldOpenExternally(url)) return;
-    event.preventDefault();
-    void shell.openExternal(url);
-  });
-  if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL);
-  } else {
-    win.loadFile(path.join(RENDERER_DIST, "index.html"));
-  }
-  win.once("ready-to-show", () => {
-    win == null ? void 0 : win.show();
-  });
-  win.on("closed", () => {
-    win = null;
+  }), e.webContents.setBackgroundThrottling(!0), e.webContents.setWindowOpenHandler(({ url: t }) => (c(t) && l.openExternal(t), { action: "deny" })), e.webContents.on("will-navigate", (t, n) => {
+    c(n) && (t.preventDefault(), l.openExternal(n));
+  }), i ? e.loadURL(i) : e.loadFile(r.join(u, "index.html")), e.once("ready-to-show", () => {
+    e == null || e.show();
+  }), e.on("closed", () => {
+    e = null;
   });
 }
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-    win = null;
-  }
+s.on("window-all-closed", () => {
+  process.platform !== "darwin" && (s.quit(), e = null);
 });
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+s.on("activate", () => {
+  f.getAllWindows().length === 0 && m();
 });
-app.whenReady().then(createWindow);
+s.whenReady().then(m);
 export {
-  MAIN_DIST,
-  RENDERER_DIST,
-  VITE_DEV_SERVER_URL
+  O as MAIN_DIST,
+  u as RENDERER_DIST,
+  i as VITE_DEV_SERVER_URL
 };

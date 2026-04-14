@@ -24,5 +24,11 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     minimize: () => ipcRenderer.send('window-minimize'),
     maximize: () => ipcRenderer.send('window-maximize'),
     close: () => ipcRenderer.send('window-close'),
-  }
+  },
+
+  dataSync: {
+    exportData: (jsonString: string) => ipcRenderer.invoke('export-data', jsonString),
+    importData: () => ipcRenderer.invoke('import-data'),
+  },
 })
+

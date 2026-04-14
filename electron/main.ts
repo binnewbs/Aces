@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 app.name = 'Aces'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { writeFile, readFile } from 'node:fs/promises'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -34,6 +35,45 @@ ipcMain.on('window-maximize', () => {
   }
 })
 ipcMain.on('window-close', () => win?.close())
+
+ipcMain.handle('export-data', async (_event, jsonString: string) => {
+  try {
+    const result = await dialog.showSaveDialog({
+      title: 'Export Aces Data',
+      defaultPath: `aces-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: 'JSON Files', extensions: ['json'] }],
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true }
+    }
+
+    await writeFile(result.filePath, jsonString, 'utf-8')
+    return { success: true, filePath: result.filePath }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+ipcMain.handle('import-data', async () => {
+  try {
+    const result = await dialog.showOpenDialog({
+      title: 'Import Aces Data',
+      filters: [{ name: 'JSON Files', extensions: ['json'] }],
+      properties: ['openFile'],
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, canceled: true }
+    }
+
+    const content = await readFile(result.filePaths[0], 'utf-8')
+    const data = JSON.parse(content)
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
 
 function shouldOpenExternally(url: string) {
   try {
