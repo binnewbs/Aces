@@ -144,7 +144,7 @@ export function CashflowOverview() {
                   <CalendarDays className="size-3 text-orange-500" />
                   This Week
                 </span>
-                <span className="text-lg font-semibold text-white">
+                <span className="text-lg font-semibold text-foreground">
                   {thisWeekNet > 0 ? "+" : thisWeekNet < 0 ? "-" : ""}{currency}{Math.abs(thisWeekNet).toLocaleString()}
                 </span>
               </div>
