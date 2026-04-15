@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ScheduleClass, timeSlots, daysOfWeek } from '@/lib/schedule-data';
 import { useSchedule } from '@/lib/schedule-store';
-import { MapPin } from 'lucide-react';
+import { Clock, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { EditScheduleDialog } from './edit-schedule-dialog';
@@ -50,6 +50,10 @@ const ScheduleCard = React.memo(({ cls, onRightClick }: { cls: ScheduleClass, on
       }}
     >
       <span className="font-semibold text-xs sm:text-[13px] leading-tight mb-1 tracking-tight truncate">{cls.name}</span>
+      <div className="flex items-center text-[10px] sm:text-[11px] opacity-80 font-medium truncate">
+        <Clock className="mr-1 size-3 shrink-0" />
+        <span className="truncate">{cls.startTime} - {cls.endTime}</span>
+      </div>
       <div className="flex items-center text-[10px] sm:text-[11px] opacity-80 mt-auto font-medium truncate">
         <MapPin className="mr-1 size-3 shrink-0" />
         <span className="truncate">{cls.room}</span>
