@@ -5,7 +5,7 @@ import { ArrowUpCircle, ArrowDownCircle, Wallet, ChevronLeft, ChevronRight, Rece
 import { CurrencyPrompt } from "./currency-prompt"
 import { Button } from "./ui/button"
 import { Link } from "react-router-dom"
-import { format, isToday, subDays, startOfDay } from "date-fns"
+import { format, isToday, startOfWeek } from "date-fns"
 
 export function CashflowOverview() {
   const { transactions, currency } = useCashflow()
@@ -54,10 +54,11 @@ export function CashflowOverview() {
     .filter((t) => t.type === "expense" && isToday(new Date(t.date)))
     .reduce((sum, t) => sum + t.amount, 0)
 
-  const sevenDaysAgo = startOfDay(subDays(now, 6))
-  const last7DaysSpending = transactions
-    .filter((t) => t.type === "expense" && new Date(t.date) >= sevenDaysAgo)
-    .reduce((sum, t) => sum + t.amount, 0)
+  const startOfThisWeek = startOfWeek(now, { weekStartsOn: 1 })
+  const thisWeekTransactions = transactions.filter((t) => new Date(t.date) >= startOfThisWeek)
+
+  const thisWeekNet = thisWeekTransactions
+    .reduce((sum, t) => sum + (t.type === "income" ? t.amount : -t.amount), 0)
 
   const [year, monthNum] = selectedMonth.split("-")
   const displayMonth = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleString('default', { month: 'short' })
@@ -141,10 +142,10 @@ export function CashflowOverview() {
               <div className="flex flex-col gap-1 rounded-lg bg-muted/50 px-4 py-2 min-w-[120px]">
                 <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                   <CalendarDays className="size-3 text-orange-500" />
-                  Last 7 Days
+                  This Week
                 </span>
-                <span className="text-lg font-semibold">
-                  {last7DaysSpending > 0 ? "-" : ""}{currency}{last7DaysSpending.toLocaleString()}
+                <span className="text-lg font-semibold text-white">
+                  {thisWeekNet > 0 ? "+" : thisWeekNet < 0 ? "-" : ""}{currency}{Math.abs(thisWeekNet).toLocaleString()}
                 </span>
               </div>
             </div>
