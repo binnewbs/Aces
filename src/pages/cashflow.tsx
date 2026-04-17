@@ -28,7 +28,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { eachDayOfInterval, endOfMonth, format, startOfDay, startOfMonth, subDays } from "date-fns"
+import {
+  eachDayOfInterval,
+  eachWeekOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  startOfDay,
+  startOfMonth,
+  subDays,
+} from "date-fns"
 import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, CalendarIcon, Pencil, TrendingDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Calendar } from "@/components/ui/calendar"
@@ -70,13 +79,6 @@ const CATEGORIES = [
 
 const TRANSACTIONS_PER_PAGE = 10
 
-const chartConfig = {
-  spending: {
-    label: "Daily spending",
-    color: "var(--color-destructive)",
-  },
-} satisfies ChartConfig
-
 export default function CashflowPage() {
   const { transactions, currency, addTransaction, updateTransaction, removeTransaction } = useCashflow()
 
@@ -101,6 +103,7 @@ export default function CashflowPage() {
   const [editDate, setEditDate] = useState<Date>(new Date())
   const [isEditDatePickerOpen, setIsEditDatePickerOpen] = useState(false)
   const [currentTransactionsPage, setCurrentTransactionsPage] = useState(1)
+  const [spendingChartMode, setSpendingChartMode] = useState<"daily" | "weekly">("daily")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -250,6 +253,52 @@ export default function CashflowPage() {
     })
   }, [filteredTransactions, selectedMonth])
 
+  const weeklySpendingData = useMemo(() => {
+    const monthStart = startOfMonth(new Date(`${selectedMonth}-01T00:00:00`))
+    const monthEnd = endOfMonth(monthStart)
+    const expenseTotalsByDay = filteredTransactions
+      .filter((transaction) => transaction.type === "expense")
+      .reduce((accumulator, transaction) => {
+        const dayKey = format(new Date(transaction.date), "yyyy-MM-dd")
+        accumulator[dayKey] = (accumulator[dayKey] || 0) + transaction.amount
+        return accumulator
+      }, {} as Record<string, number>)
+
+    return eachWeekOfInterval(
+      { start: monthStart, end: monthEnd },
+      { weekStartsOn: 1 }
+    ).map((weekStart, index) => {
+      const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 })
+      const intervalStart = weekStart < monthStart ? monthStart : weekStart
+      const intervalEnd = weekEnd > monthEnd ? monthEnd : weekEnd
+
+      const spending = eachDayOfInterval({ start: intervalStart, end: intervalEnd }).reduce(
+        (sum, day) => sum + (expenseTotalsByDay[format(day, "yyyy-MM-dd")] || 0),
+        0
+      )
+
+      return {
+        date: format(intervalStart, "yyyy-MM-dd"),
+        label: `${format(intervalStart, "MMM d")} - ${format(intervalEnd, "MMM d")}`,
+        shortLabel: `W${index + 1}`,
+        spending,
+      }
+    })
+  }, [filteredTransactions, selectedMonth])
+
+  const spendingChartData = spendingChartMode === "daily" ? dailySpendingData : weeklySpendingData
+
+  const spendingChartConfig = useMemo(
+    () =>
+      ({
+        spending: {
+          label: spendingChartMode === "daily" ? "Daily spending" : "Weekly spending",
+          color: "var(--color-destructive)",
+        },
+      }) satisfies ChartConfig,
+    [spendingChartMode]
+  )
+
   const averageDailySpending = useMemo(() => {
     const rollingWindowDays = 30
     const windowStart = startOfDay(subDays(new Date(), rollingWindowDays - 1))
@@ -291,9 +340,9 @@ export default function CashflowPage() {
     [spendingByCategoryData]
   )
 
-  const highestSpendingDay = useMemo(
+  const highestSpendingPoint = useMemo(
     () =>
-      dailySpendingData.reduce<{
+      spendingChartData.reduce<{
         date: string
         label: string
         shortLabel: string
@@ -305,7 +354,7 @@ export default function CashflowPage() {
 
         return highest
       }, null),
-    [dailySpendingData]
+    [spendingChartData]
   )
 
   return (
@@ -515,17 +564,35 @@ export default function CashflowPage() {
           <CardHeader className="gap-3">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
-                <CardTitle>Daily Spending</CardTitle>
+                <CardTitle>{spendingChartMode === "daily" ? "Daily Spending" : "Weekly Spending"}</CardTitle>
                 <CardDescription>
-                  See how much you spent each day in the selected month.
+                  {spendingChartMode === "daily"
+                    ? "See how much you spent each day in the selected month."
+                    : "See how much you spent each week in the selected month."}
                 </CardDescription>
               </div>
-              <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-                <div className="text-muted-foreground">Highest day</div>
-                <div className="font-semibold">
-                  {highestSpendingDay && highestSpendingDay.spending > 0
-                    ? `${highestSpendingDay.label} • ${currency}${highestSpendingDay.spending.toLocaleString()}`
-                    : "No spending yet"}
+              <div className="flex items-start gap-3">
+                <Select
+                  value={spendingChartMode}
+                  onValueChange={(value) => setSpendingChartMode(value as "daily" | "weekly")}
+                >
+                  <SelectTrigger className="w-[170px]">
+                    <SelectValue placeholder="Spending view" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily spending</SelectItem>
+                    <SelectItem value="weekly">Weekly spending</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                  <div className="text-muted-foreground">
+                    {spendingChartMode === "daily" ? "Highest day" : "Highest week"}
+                  </div>
+                  <div className="font-semibold">
+                    {highestSpendingPoint && highestSpendingPoint.spending > 0
+                      ? `${highestSpendingPoint.label} • ${currency}${highestSpendingPoint.spending.toLocaleString()}`
+                      : "No spending yet"}
+                  </div>
                 </div>
               </div>
             </div>
@@ -535,12 +602,14 @@ export default function CashflowPage() {
               <div className="flex min-h-72 flex-1 flex-col items-center justify-center rounded-xl border border-dashed text-center">
                 <p className="font-medium">No expenses recorded for this month.</p>
                 <p className="text-sm text-muted-foreground">
-                  Add an expense to start seeing your daily spending trend.
+                  {spendingChartMode === "daily"
+                    ? "Add an expense to start seeing your daily spending trend."
+                    : "Add an expense to start seeing your weekly spending trend."}
                 </p>
               </div>
             ) : (
-              <ChartContainer config={chartConfig} className="min-h-72 h-full w-full flex-1">
-                <BarChart accessibilityLayer data={dailySpendingData} margin={{ top: 8, right: 4, left: 12, bottom: 0 }}>
+              <ChartContainer config={spendingChartConfig} className="min-h-72 h-full w-full flex-1">
+                <BarChart accessibilityLayer data={spendingChartData} margin={{ top: 8, right: 4, left: 12, bottom: 0 }}>
                   <CartesianGrid vertical={false} />
                   <XAxis
                     dataKey="shortLabel"

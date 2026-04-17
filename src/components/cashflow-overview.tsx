@@ -57,8 +57,9 @@ export function CashflowOverview() {
   const startOfThisWeek = startOfWeek(now, { weekStartsOn: 1 })
   const thisWeekTransactions = transactions.filter((t) => new Date(t.date) >= startOfThisWeek)
 
-  const thisWeekNet = thisWeekTransactions
-    .reduce((sum, t) => sum + (t.type === "income" ? t.amount : -t.amount), 0)
+  const thisWeekExpense = thisWeekTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0)
 
   const [year, monthNum] = selectedMonth.split("-")
   const displayMonth = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleString('default', { month: 'short' })
@@ -145,7 +146,7 @@ export function CashflowOverview() {
                   This Week
                 </span>
                 <span className="text-lg font-semibold text-foreground">
-                  {thisWeekNet > 0 ? "+" : thisWeekNet < 0 ? "-" : ""}{currency}{Math.abs(thisWeekNet).toLocaleString()}
+                  {thisWeekExpense > 0 ? "-" : ""}{currency}{thisWeekExpense.toLocaleString()}
                 </span>
               </div>
             </div>
