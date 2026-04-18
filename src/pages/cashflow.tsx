@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useCashflow, type Transaction } from "@/lib/cashflow-store"
 import { CurrencyPrompt } from "@/components/currency-prompt"
+import { SubscriptionManager } from "@/components/subscription-manager"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -340,22 +341,6 @@ export default function CashflowPage() {
     [spendingByCategoryData]
   )
 
-  const highestSpendingPoint = useMemo(
-    () =>
-      spendingChartData.reduce<{
-        date: string
-        label: string
-        shortLabel: string
-        spending: number
-      } | null>((highest, current) => {
-        if (!highest || current.spending > highest.spending) {
-          return current
-        }
-
-        return highest
-      }, null),
-    [spendingChartData]
-  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -386,6 +371,7 @@ export default function CashflowPage() {
               })}
             </SelectContent>
           </Select>
+          <SubscriptionManager />
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -571,30 +557,18 @@ export default function CashflowPage() {
                     : "See how much you spent each week in the selected month."}
                 </CardDescription>
               </div>
-              <div className="flex items-start gap-3">
-                <Select
-                  value={spendingChartMode}
-                  onValueChange={(value) => setSpendingChartMode(value as "daily" | "weekly")}
-                >
-                  <SelectTrigger className="w-[170px]">
-                    <SelectValue placeholder="Spending view" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily spending</SelectItem>
-                    <SelectItem value="weekly">Weekly spending</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-                  <div className="text-muted-foreground">
-                    {spendingChartMode === "daily" ? "Highest day" : "Highest week"}
-                  </div>
-                  <div className="font-semibold">
-                    {highestSpendingPoint && highestSpendingPoint.spending > 0
-                      ? `${highestSpendingPoint.label} • ${currency}${highestSpendingPoint.spending.toLocaleString()}`
-                      : "No spending yet"}
-                  </div>
-                </div>
-              </div>
+              <Select
+                value={spendingChartMode}
+                onValueChange={(value) => setSpendingChartMode(value as "daily" | "weekly")}
+              >
+                <SelectTrigger className="w-[170px] sm:ml-auto">
+                  <SelectValue placeholder="Spending view" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Daily spending</SelectItem>
+                  <SelectItem value="weekly">Weekly spending</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col">
