@@ -3,6 +3,7 @@ const DATA_KEYS = [
   "aces-profile",
   "aces-assignments",
   "aces-cashflow-transactions",
+  "aces-cashflow-subscriptions",
   "aces-cashflow-currency",
   "aces-schedule",
   "aces-notes",
@@ -10,7 +11,7 @@ const DATA_KEYS = [
 
 const SETTINGS_KEYS = [
   "aces-weather-city",
-  "aces-ui-theme",
+  "vite-ui-theme",
 ] as const
 
 const SYNC_META_KEY = "aces-last-sync"
@@ -27,6 +28,7 @@ export interface ImportSummary {
   assignments: number
   notes: number
   transactions: number
+  cashflowSubscriptions: number
   scheduleClasses: number
   hasProfile: boolean
   hasSettings: boolean
@@ -78,6 +80,7 @@ function buildImportSummary(exportData: AcesExportData): ImportSummary {
     assignments: countItems(d["aces-assignments"]),
     notes: countItems(d["aces-notes"]),
     transactions: countItems(d["aces-cashflow-transactions"]),
+    cashflowSubscriptions: countItems(d["aces-cashflow-subscriptions"]),
     scheduleClasses: countItems(d["aces-schedule"]),
     hasProfile: d["aces-profile"] != null,
     hasSettings: Object.values(exportData.settings ?? {}).some((v) => v != null),

@@ -103,6 +103,7 @@ export default function SettingsPage() {
         if (s.assignments > 0) parts.push(`${s.assignments} assignments`)
         if (s.notes > 0) parts.push(`${s.notes} notes`)
         if (s.transactions > 0) parts.push(`${s.transactions} transactions`)
+        if (s.cashflowSubscriptions > 0) parts.push(`${s.cashflowSubscriptions} subscriptions`)
         if (s.scheduleClasses > 0) parts.push(`${s.scheduleClasses} classes`)
         if (s.hasProfile) parts.push("profile")
         if (s.hasSettings) parts.push("settings")
@@ -345,7 +346,7 @@ export default function SettingsPage() {
                 </CardTitle>
                 <CardDescription>
                   Save a snapshot of all your data as a JSON file. This includes
-                  assignments, notes, cashflow transactions, schedule, profile,
+                  assignments, notes, cashflow transactions, subscriptions, schedule, profile,
                   and settings.
                 </CardDescription>
               </CardHeader>
@@ -394,7 +395,7 @@ export default function SettingsPage() {
                           <AlertDialogTitle>Replace all data?</AlertDialogTitle>
                           <AlertDialogDescription>
                             Importing will overwrite all your current assignments,
-                            notes, cashflow transactions, schedule, and profile
+                            notes, cashflow transactions, subscriptions, schedule, and profile
                             with the data from the backup file. This action cannot
                             be undone.
                           </AlertDialogDescription>
