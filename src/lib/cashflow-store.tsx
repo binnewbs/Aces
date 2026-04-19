@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react"
-import { addMonths, startOfMonth } from "date-fns"
+import { addMonths } from "date-fns"
 
 export interface Transaction {
   id: string;
@@ -80,7 +80,7 @@ export function CashflowProvider({ children }: { children: React.ReactNode }) {
     if (subscriptions.length === 0) return;
 
     let hasUpdates = false;
-    const currentMonthStart = startOfMonth(new Date());
+    const now = new Date();
     const newTransactions: Transaction[] = [];
 
     const updatedSubs = subscriptions.map((sub) => {
@@ -88,7 +88,7 @@ export function CashflowProvider({ children }: { children: React.ReactNode }) {
       let nextDate = addMonths(processDate, 1);
       let subTouched = false;
 
-      while (nextDate <= currentMonthStart) {
+      while (nextDate <= now) {
         newTransactions.push({
           id: crypto.randomUUID(),
           type: "expense",
@@ -149,9 +149,9 @@ export function CashflowProvider({ children }: { children: React.ReactNode }) {
 
   const addSubscription = useCallback((sub: Omit<Subscription, "id" | "lastProcessed">) => {
     const startDate = new Date(sub.startDate);
-    // Initial lastprocessed is one month prior to the start of its initial month
-    // so it naturally fires on the start of its registered month.
-    const initialLastProcessed = addMonths(startOfMonth(startDate), -1).toISOString();
+    // Initial lastprocessed is one month prior to the start date
+    // so it naturally fires on its registered day of month.
+    const initialLastProcessed = addMonths(startDate, -1).toISOString();
 
     const newSub: Subscription = {
       ...sub,
