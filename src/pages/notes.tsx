@@ -1,5 +1,5 @@
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState, useCallback, type DragEvent, type MouseEvent } from "react"
-import { useNotes } from "@/lib/notes-store"
+import { useNotes, type Note } from "@/lib/notes-store"
 import { Button } from "@/components/ui/button"
 import {
   ContextMenu,
@@ -22,6 +22,8 @@ import {
   List,
   ListChecks,
   ListOrdered,
+  Pin,
+  PinOff,
   Plus,
   Quote,
   Square,
@@ -45,7 +47,7 @@ import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 
 export default function NotesPage() {
-  const { notes, activeNoteId, setActiveNoteId, createNote, updateNote, deleteNote, deleteNotes, moveNote } = useNotes()
+  const { notes, activeNoteId, setActiveNoteId, createNote, updateNote, setNotePinned, deleteNote, deleteNotes, moveNote } = useNotes()
   const editorRef = useRef<HTMLTextAreaElement | null>(null)
   const selectionRef = useRef({ start: 0, end: 0 })
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null)
@@ -463,6 +465,7 @@ export default function NotesPage() {
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                     onDragEnd={resetDragState}
+                    onSetPinned={setNotePinned}
                     onDelete={setContextDeleteNoteId}
                     getNoteTitle={getNoteTitle}
                     getFormattedDate={getFormattedDate}
@@ -598,11 +601,12 @@ const NoteSidebarItem = memo(({
   onDragOver,
   onDrop,
   onDragEnd,
+  onSetPinned,
   onDelete,
   getNoteTitle,
   getFormattedDate,
 }: {
-  note: any
+  note: Note
   isActive: boolean
   isSelectionMode: boolean
   isSelected: boolean
@@ -614,6 +618,7 @@ const NoteSidebarItem = memo(({
   onDragOver: (event: DragEvent<HTMLButtonElement>, id: string) => void
   onDrop: (event: DragEvent<HTMLButtonElement>, id: string) => void
   onDragEnd: () => void
+  onSetPinned: (id: string, pinned: boolean) => void
   onDelete: (id: string) => void
   getNoteTitle: (content: string) => string
   getFormattedDate: (timestamp: number) => string
@@ -660,7 +665,8 @@ const NoteSidebarItem = memo(({
               {getNoteTitle(note.content)}
             </span>
             <span className="flex w-full items-center justify-between text-xs text-muted-foreground">
-              {getFormattedDate(note.lastModified)}
+              <span>{getFormattedDate(note.lastModified)}</span>
+              {note.pinned && <Pin className="size-3.5 text-primary" />}
             </span>
           </span>
           {!isSelectionMode && (
@@ -675,6 +681,15 @@ const NoteSidebarItem = memo(({
       </ContextMenuTrigger>
       {!isSelectionMode && (
         <ContextMenuContent>
+          <ContextMenuItem
+            onSelect={() => {
+              onSelect(note.id)
+              onSetPinned(note.id, !note.pinned)
+            }}
+          >
+            {note.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
+            {note.pinned ? "Unpin Note" : "Pin Note"}
+          </ContextMenuItem>
           <ContextMenuItem
             variant="destructive"
             onSelect={() => {

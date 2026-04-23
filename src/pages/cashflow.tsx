@@ -31,12 +31,16 @@ import {
 } from "@/components/ui/select"
 import {
   eachDayOfInterval,
+  eachMonthOfInterval,
   eachWeekOfInterval,
+  eachYearOfInterval,
+  endOfYear,
   endOfMonth,
   endOfWeek,
   format,
   startOfDay,
   startOfMonth,
+  startOfYear,
   subDays,
 } from "date-fns"
 import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle, CalendarIcon, Pencil, TrendingDown } from "lucide-react"
@@ -79,6 +83,37 @@ const CATEGORIES = [
 ]
 
 const TRANSACTIONS_PER_PAGE = 10
+type SpendingChartMode = "daily" | "weekly" | "monthly" | "yearly"
+
+const SPENDING_CHART_MODE_META: Record<
+  SpendingChartMode,
+  { title: string; description: string; emptyHint: string; label: string }
+> = {
+  daily: {
+    title: "Daily Spending",
+    description: "See how much you spent each day in the selected month.",
+    emptyHint: "Add an expense to start seeing your daily spending trend.",
+    label: "Daily spending",
+  },
+  weekly: {
+    title: "Weekly Spending",
+    description: "See how much you spent each week in the selected month.",
+    emptyHint: "Add an expense to start seeing your weekly spending trend.",
+    label: "Weekly spending",
+  },
+  monthly: {
+    title: "Monthly Spending",
+    description: "See how much you spent each month in the selected year.",
+    emptyHint: "Add an expense to start seeing your monthly spending trend.",
+    label: "Monthly spending",
+  },
+  yearly: {
+    title: "Yearly Spending",
+    description: "See how much you spent each year across your records.",
+    emptyHint: "Add an expense to start seeing your yearly spending trend.",
+    label: "Yearly spending",
+  },
+}
 
 export default function CashflowPage() {
   const { transactions, currency, addTransaction, updateTransaction, removeTransaction } = useCashflow()
@@ -104,7 +139,7 @@ export default function CashflowPage() {
   const [editDate, setEditDate] = useState<Date>(new Date())
   const [isEditDatePickerOpen, setIsEditDatePickerOpen] = useState(false)
   const [currentTransactionsPage, setCurrentTransactionsPage] = useState(1)
-  const [spendingChartMode, setSpendingChartMode] = useState<"daily" | "weekly">("daily")
+  const [spendingChartMode, setSpendingChartMode] = useState<SpendingChartMode>("daily")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -287,13 +322,79 @@ export default function CashflowPage() {
     })
   }, [filteredTransactions, selectedMonth])
 
-  const spendingChartData = spendingChartMode === "daily" ? dailySpendingData : weeklySpendingData
+  const monthlySpendingData = useMemo(() => {
+    const selectedMonthDate = new Date(`${selectedMonth}-01T00:00:00`)
+    const yearStart = startOfYear(selectedMonthDate)
+    const yearEnd = endOfYear(selectedMonthDate)
+    const expenseTotalsByMonth = transactions
+      .filter((transaction) => transaction.type === "expense")
+      .filter((transaction) => new Date(transaction.date).getFullYear() === selectedMonthDate.getFullYear())
+      .reduce((accumulator, transaction) => {
+        const monthKey = format(new Date(transaction.date), "yyyy-MM")
+        accumulator[monthKey] = (accumulator[monthKey] || 0) + transaction.amount
+        return accumulator
+      }, {} as Record<string, number>)
+
+    return eachMonthOfInterval({ start: yearStart, end: yearEnd }).map((month) => {
+      const monthKey = format(month, "yyyy-MM")
+      return {
+        date: `${monthKey}-01`,
+        label: format(month, "MMMM yyyy"),
+        shortLabel: format(month, "MMM"),
+        spending: expenseTotalsByMonth[monthKey] || 0,
+      }
+    })
+  }, [selectedMonth, transactions])
+
+  const yearlySpendingData = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    const expenseTotalsByYear = transactions
+      .filter((transaction) => transaction.type === "expense")
+      .reduce((accumulator, transaction) => {
+        const year = new Date(transaction.date).getFullYear()
+        const yearKey = String(year)
+        accumulator[yearKey] = (accumulator[yearKey] || 0) + transaction.amount
+        return accumulator
+      }, {} as Record<string, number>)
+
+    const transactionYears = transactions.map((transaction) => new Date(transaction.date).getFullYear())
+    const minYear = Math.min(currentYear, ...(transactionYears.length > 0 ? transactionYears : [currentYear]))
+    const maxYear = Math.max(currentYear, ...(transactionYears.length > 0 ? transactionYears : [currentYear]))
+
+    return eachYearOfInterval({
+      start: new Date(`${minYear}-01-01T00:00:00`),
+      end: new Date(`${maxYear}-12-31T23:59:59`),
+    }).map((yearDate) => {
+      const yearKey = format(yearDate, "yyyy")
+      return {
+        date: `${yearKey}-01-01`,
+        label: yearKey,
+        shortLabel: yearKey,
+        spending: expenseTotalsByYear[yearKey] || 0,
+      }
+    })
+  }, [transactions])
+
+  const spendingChartData = useMemo(() => {
+    const modeData: Record<SpendingChartMode, typeof dailySpendingData> = {
+      daily: dailySpendingData,
+      weekly: weeklySpendingData,
+      monthly: monthlySpendingData,
+      yearly: yearlySpendingData,
+    }
+    return modeData[spendingChartMode]
+  }, [dailySpendingData, monthlySpendingData, spendingChartMode, weeklySpendingData, yearlySpendingData])
+
+  const hasSpendingData = useMemo(
+    () => spendingChartData.some((item) => item.spending > 0),
+    [spendingChartData]
+  )
 
   const spendingChartConfig = useMemo(
     () =>
       ({
         spending: {
-          label: spendingChartMode === "daily" ? "Daily spending" : "Weekly spending",
+          label: SPENDING_CHART_MODE_META[spendingChartMode].label,
           color: "var(--color-destructive)",
         },
       }) satisfies ChartConfig,
@@ -550,16 +651,14 @@ export default function CashflowPage() {
           <CardHeader className="gap-3">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
-                <CardTitle>{spendingChartMode === "daily" ? "Daily Spending" : "Weekly Spending"}</CardTitle>
+                <CardTitle>{SPENDING_CHART_MODE_META[spendingChartMode].title}</CardTitle>
                 <CardDescription>
-                  {spendingChartMode === "daily"
-                    ? "See how much you spent each day in the selected month."
-                    : "See how much you spent each week in the selected month."}
+                  {SPENDING_CHART_MODE_META[spendingChartMode].description}
                 </CardDescription>
               </div>
               <Select
                 value={spendingChartMode}
-                onValueChange={(value) => setSpendingChartMode(value as "daily" | "weekly")}
+                onValueChange={(value) => setSpendingChartMode(value as SpendingChartMode)}
               >
                 <SelectTrigger className="w-[170px] sm:ml-auto">
                   <SelectValue placeholder="Spending view" />
@@ -567,18 +666,18 @@ export default function CashflowPage() {
                 <SelectContent>
                   <SelectItem value="daily">Daily spending</SelectItem>
                   <SelectItem value="weekly">Weekly spending</SelectItem>
+                  <SelectItem value="monthly">Monthly spending</SelectItem>
+                  <SelectItem value="yearly">Yearly spending</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col">
-            {totalExpense === 0 ? (
+            {!hasSpendingData ? (
               <div className="flex min-h-72 flex-1 flex-col items-center justify-center rounded-xl border border-dashed text-center">
-                <p className="font-medium">No expenses recorded for this month.</p>
+                <p className="font-medium">No expenses recorded for this period.</p>
                 <p className="text-sm text-muted-foreground">
-                  {spendingChartMode === "daily"
-                    ? "Add an expense to start seeing your daily spending trend."
-                    : "Add an expense to start seeing your weekly spending trend."}
+                  {SPENDING_CHART_MODE_META[spendingChartMode].emptyHint}
                 </p>
               </div>
             ) : (

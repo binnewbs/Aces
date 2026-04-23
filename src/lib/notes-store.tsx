@@ -4,6 +4,7 @@ export interface Note {
   id: string
   content: string
   lastModified: number
+  pinned: boolean
 }
 
 interface NotesStore {
@@ -12,6 +13,7 @@ interface NotesStore {
   setActiveNoteId: (id: string | null) => void
   createNote: () => void
   updateNote: (id: string, content: string) => void
+  setNotePinned: (id: string, pinned: boolean) => void
   deleteNote: (id: string) => void
   deleteNotes: (ids: string[]) => void
   moveNote: (draggedId: string, targetId: string) => void
@@ -25,7 +27,19 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const [notes, setNotes] = useState<Note[]>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
-      return stored ? JSON.parse(stored) : []
+      if (!stored) return []
+
+      const parsed = JSON.parse(stored)
+      if (!Array.isArray(parsed)) return []
+
+      return parsed
+        .filter((note) => note && typeof note.id === "string")
+        .map((note) => ({
+          id: note.id,
+          content: typeof note.content === "string" ? note.content : "",
+          lastModified: typeof note.lastModified === "number" ? note.lastModified : Date.now(),
+          pinned: typeof note.pinned === "boolean" ? note.pinned : false,
+        }))
     } catch {
       return []
     }
@@ -46,6 +60,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(),
       content: "",
       lastModified: Date.now(),
+      pinned: false,
     }
     setNotes((prev) => [newNote, ...prev])
     setActiveNoteId(newNote.id)
@@ -75,6 +90,32 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       next[draggedIndex] = next[targetIndex]
       next[targetIndex] = draggedNote
 
+      return next
+    })
+  }, [])
+
+  const setNotePinned = useCallback((id: string, pinned: boolean) => {
+    setNotes((prev) => {
+      const noteIndex = prev.findIndex((note) => note.id === id)
+      if (noteIndex === -1) return prev
+
+      const current = prev[noteIndex]
+      if (current.pinned === pinned) return prev
+
+      const nextNote: Note = { ...current, pinned }
+      const withoutCurrent = prev.filter((note) => note.id !== id)
+
+      if (pinned) {
+        return [nextNote, ...withoutCurrent]
+      }
+
+      const firstUnpinnedIndex = withoutCurrent.findIndex((note) => !note.pinned)
+      if (firstUnpinnedIndex === -1) {
+        return [...withoutCurrent, nextNote]
+      }
+
+      const next = [...withoutCurrent]
+      next.splice(firstUnpinnedIndex, 0, nextNote)
       return next
     })
   }, [])
@@ -111,10 +152,11 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     setActiveNoteId, 
     createNote, 
     updateNote, 
+    setNotePinned,
     deleteNote,
     deleteNotes,
     moveNote,
-  }), [notes, activeNoteId, createNote, updateNote, deleteNote, deleteNotes, moveNote])
+  }), [notes, activeNoteId, createNote, updateNote, setNotePinned, deleteNote, deleteNotes, moveNote])
 
   return (
     <NotesContext.Provider value={value}>
